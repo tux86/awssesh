@@ -24,6 +24,12 @@ bunx ssomatic
 npm install -g ssomatic
 ```
 
+> **Upgrading from 1.x?** SSOmatic is now a CLI-only tool distributed via npm. The
+> built-in web UI has been removed, and the Homebrew tap / standalone binaries are
+> replaced by npm. Uninstall the old binary (`brew uninstall ssomatic`) and use
+> `npx ssomatic` or `npm i -g ssomatic` instead. Your `~/.aws` profiles and saved
+> settings are unaffected.
+
 ## Demo
 
 <p align="center">
