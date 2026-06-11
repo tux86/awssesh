@@ -52,6 +52,16 @@ function pad(s: string, w: number): string {
   return s.length >= w ? s : s + " ".repeat(w - s.length);
 }
 
+/** A keyboard shortcut hint: key char(s) in bold cyan, description in dim. */
+function Key({ k, children }: { k: string; children: React.ReactNode }) {
+  return (
+    <Text>
+      <Text bold color="cyan">{k}</Text>
+      <Text dimColor> {children}  </Text>
+    </Text>
+  );
+}
+
 /** A single fixed-width cell. Highlighted rows render inverse; columns never drift. */
 function Cell({
   text,
@@ -157,8 +167,21 @@ export function Dashboard(props: Props) {
       </Box>
 
       <Box marginTop={1} flexDirection="column">
-        <Text dimColor>↑↓ move  ⏎ details  r refresh  a auto-refresh  b background</Text>
-        <Text dimColor>c copy  y name  o console  / filter  s settings  q quit</Text>
+        <Box>
+          <Key k="↑↓">move</Key>
+          <Key k="⏎">details</Key>
+          <Key k="r">refresh</Key>
+          <Key k="a">{AUTO_MARKER} auto-refresh</Key>
+          <Key k="b">background</Key>
+        </Box>
+        <Box>
+          <Key k="c">copy</Key>
+          <Key k="y">name</Key>
+          <Key k="o">console</Key>
+          <Key k="/">filter</Key>
+          <Key k="s">settings</Key>
+          <Key k="q">quit</Key>
+        </Box>
         <Text dimColor>{AUTO_MARKER} = auto-refreshed by the daemon</Text>
       </Box>
     </Box>
