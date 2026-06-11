@@ -16,9 +16,10 @@
   "scripts": {
     "start": "bun run src/cli/index.tsx",
     "dev": "bun run --watch src/cli/index.tsx",
-    "build": "bun build src/cli/index.tsx --target node --outfile dist/cli.js",
+    "build": "bun build src/cli/index.tsx --target node --packages external --outfile dist/cli.js",
     "lint": "eslint src",
     "test": "bun test",
+    "prepack": "bun run build",
     "prepare": "husky"
   },
   "dependencies": {

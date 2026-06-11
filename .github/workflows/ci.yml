@@ -25,13 +25,16 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Test
+        run: bun test
+
       - name: Build
         run: bun run build
 
-      - name: Verify output
+      - name: Verify output runs under Node
         run: |
-          test -f dist/ssomatic
-          ls -lh dist/ssomatic
+          test -f dist/cli.js
+          node dist/cli.js --version
 
       - name: Validate commitlint config
         if: github.event_name == 'pull_request'
