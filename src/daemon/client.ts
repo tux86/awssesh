@@ -19,7 +19,12 @@ export async function request(msg: ClientMessage, timeoutMs = 3000): Promise<Dae
       if (msgs.length) {
         clearTimeout(timer);
         sock.destroy();
-        resolve(msgs[0]);
+        const first = msgs[0];
+        if (first.type === "error") {
+          reject(new Error(first.message));
+        } else {
+          resolve(first);
+        }
       }
     });
     sock.once("error", (err) => {

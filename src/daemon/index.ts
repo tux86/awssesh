@@ -23,6 +23,9 @@ function logPath(): string {
 const notified = new Set<string>();
 const credExpiry = new Map<string, Date>();
 
+/** Fallback credential TTL when AWS omits the credential expiration in the response. */
+const DEFAULT_CRED_TTL_MS = 50 * 60 * 1000;
+
 function maybeNotify(enabled: boolean, profile: string): void {
   if (!enabled || notified.has(profile)) return;
   notified.add(profile);
@@ -56,6 +59,7 @@ async function computeState(): Promise<ProfileState[]> {
 
     const favorite = favorites.has(p.name);
     let status: ProfileStatusKind = ssoTokenValid ? "valid" : "needs-login";
+    let errorMsg: string | undefined;
 
     if (favorite) {
       const action = decideAction({ ssoTokenValid, credsExpireAt }, now, leadMs);
@@ -65,13 +69,15 @@ async function computeState(): Promise<ProfileState[]> {
         if (r.success) {
           notified.delete(p.name);
           status = "valid";
-          credExpiry.set(p.name, r.expiresAt ?? new Date(Date.now() + 50 * 60 * 1000));
+          credExpiry.set(p.name, r.expiresAt ?? new Date(Date.now() + DEFAULT_CRED_TTL_MS));
         } else if (r.needsLogin) {
           status = "needs-login";
           credExpiry.delete(p.name);
           maybeNotify(settings.notifications, p.name);
         } else {
+          // Unrecognized failure — surface error so the UI isn't opaque.
           status = "error";
+          errorMsg = r.error;
         }
       } else if (action === "needs-login") {
         status = "needs-login";
@@ -94,6 +100,7 @@ async function computeState(): Promise<ProfileState[]> {
           : null,
       favorite,
       accountId: p.ssoAccountId,
+      ...(errorMsg !== undefined && { error: errorMsg }),
     });
   }
 
@@ -113,7 +120,7 @@ export async function runDaemon(): Promise<void> {
       const r = await coreRefresh(p);
       if (r.success) {
         notified.delete(name);
-        credExpiry.set(name, r.expiresAt ?? new Date(Date.now() + 50 * 60 * 1000));
+        credExpiry.set(name, r.expiresAt ?? new Date(Date.now() + DEFAULT_CRED_TTL_MS));
       } else if (r.needsLogin) {
         credExpiry.delete(name);
       }

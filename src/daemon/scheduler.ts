@@ -12,8 +12,3 @@ export function decideAction(timing: ProfileTiming, now: Date, leadMs: number): 
   return msLeft <= leadMs ? "refresh" : "wait";
 }
 
-/** Milliseconds until the next decision point for a profile (for scheduling the next tick). */
-export function msUntilNextCheck(timing: ProfileTiming, now: Date, leadMs: number): number {
-  if (!timing.ssoTokenValid || timing.credsExpireAt === null) return 0;
-  return Math.max(0, timing.credsExpireAt.getTime() - now.getTime() - leadMs);
-}

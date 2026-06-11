@@ -23,8 +23,13 @@ export async function runStatus(): Promise<number> {
   const now = new Date();
   let rows: ProfileState[];
   if (await isDaemonAlive()) {
-    const msg = await request({ type: "snapshot" });
-    rows = msg.type === "state" ? msg.profiles : [];
+    try {
+      const msg = await request({ type: "snapshot" });
+      rows = msg.type === "state" ? msg.profiles : [];
+    } catch (err) {
+      process.stderr.write(`warning: daemon request failed (${String(err)}), falling back to local state\n`);
+      rows = await buildLocalProfileStates();
+    }
   } else {
     rows = await buildLocalProfileStates();
   }

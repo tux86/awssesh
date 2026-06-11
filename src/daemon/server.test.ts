@@ -73,6 +73,25 @@ test("subscribe pushes state on broadcast", async () => {
   sock.destroy();
 });
 
+test("refresh request receives a state reply directly (requester is not a subscriber)", async () => {
+  let refreshedProfile: string | undefined;
+  server = await startServer({
+    startedAtIso: "2026-06-11T10:00:00.000Z",
+    computeState: async () => fakeProfiles,
+    refreshProfile: async (name) => { refreshedProfile = name; },
+    tickMs: 10_000,
+  });
+  const sock = connect(socketPath());
+  await new Promise((r) => sock.once("connect", r));
+  const reply = readOne(sock);
+  sock.write(encode({ type: "refresh", profile: "prod" }));
+  const msg = await reply;
+  expect(msg.type).toBe("state");
+  if (msg.type === "state") expect(msg.profiles).toEqual(fakeProfiles);
+  expect(refreshedProfile).toBe("prod");
+  sock.destroy();
+});
+
 test("stop() resolves even with a lingering non-subscriber connection", async () => {
   server = await startServer({
     startedAtIso: "2026-06-11T10:00:00.000Z",

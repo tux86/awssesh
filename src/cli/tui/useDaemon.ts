@@ -51,11 +51,23 @@ export function useDaemon(localProfiles: ProfileState[]): DaemonView {
   }, [attach]);
 
   const refresh = useCallback(async (profile?: string) => {
-    if (await isDaemonAlive()) await request({ type: "refresh", profile });
+    if (await isDaemonAlive()) {
+      try {
+        await request({ type: "refresh", profile });
+      } catch {
+        // Transient timeout or daemon error — ignore; subscription will deliver next update.
+      }
+    }
   }, []);
 
   const setFavorite = useCallback(async (profile: string, value: boolean) => {
-    if (await isDaemonAlive()) await request({ type: "setFavorite", profile, value });
+    if (await isDaemonAlive()) {
+      try {
+        await request({ type: "setFavorite", profile, value });
+      } catch {
+        // Transient timeout or daemon error — ignore; subscription will deliver next update.
+      }
+    }
   }, []);
 
   return { running, info, profiles, startBackground, refresh, setFavorite };

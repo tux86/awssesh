@@ -1,4 +1,5 @@
 import { createServer, type Server, type Socket } from "node:net";
+import { chmodSync } from "node:fs";
 import {
   encode,
   decodeStream,
@@ -56,15 +57,25 @@ export async function startServer(deps: ServerDeps): Promise<DaemonServer> {
       case "refresh": {
         const targets = msg.profile ? [msg.profile] : state.filter((p) => p.favorite).map((p) => p.name);
         for (const name of targets) await deps.refreshProfile(name);
-        await broadcast();
+        // Refresh state once, reply to requester, then notify subscribers.
+        await refreshState();
+        const refreshMsg = encode({ type: "state", daemon: info, profiles: state } satisfies DaemonMessage);
+        if (!sock.destroyed) sock.write(refreshMsg);
+        for (const sub of subscribers) if (sub !== sock) sub.write(refreshMsg);
         break;
       }
       case "setFavorite": {
         await deps.setFavorite?.(msg.profile, msg.value);
-        await broadcast();
+        // Refresh state once, reply to requester, then notify subscribers.
+        await refreshState();
+        const favMsg = encode({ type: "state", daemon: info, profiles: state } satisfies DaemonMessage);
+        if (!sock.destroyed) sock.write(favMsg);
+        for (const sub of subscribers) if (sub !== sock) sub.write(favMsg);
         break;
       }
       case "stop": {
+        // Send a brief ack so the client's request() resolves before the socket closes.
+        if (!sock.destroyed) sock.write(encode({ type: "state", daemon: info, profiles: state } satisfies DaemonMessage));
         await stop();
         break;
       }
@@ -92,6 +103,9 @@ export async function startServer(deps: ServerDeps): Promise<DaemonServer> {
   });
 
   await new Promise<void>((resolve) => netServer.listen(socketPath(), resolve));
+  // Restrict socket permissions: if runtimeDir falls back to world-writable /tmp,
+  // this prevents other local users from connecting to control the daemon.
+  chmodSync(socketPath(), 0o600);
   writePidFile(process.pid);
 
   const interval = setInterval(() => void broadcast(), deps.tickMs ?? 60_000);

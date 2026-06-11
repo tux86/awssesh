@@ -30,15 +30,19 @@ export async function runDaemonCommand(sub: string | undefined): Promise<number>
         process.stdout.write("daemon: stopped\n");
         return 0;
       }
-      const msg = await request({ type: "snapshot" });
       const pid = readPidFile();
-      const watched =
-        msg.type === "state"
-          ? msg.profiles.filter((p) => p.favorite).map((p) => p.name)
-          : [];
-      process.stdout.write(
-        `daemon: running (pid ${pid ?? "?"})\nwatching: ${watched.join(", ") || "(none)"}\n`
-      );
+      try {
+        const msg = await request({ type: "snapshot" });
+        const watched =
+          msg.type === "state"
+            ? msg.profiles.filter((p) => p.favorite).map((p) => p.name)
+            : [];
+        process.stdout.write(
+          `daemon: running (pid ${pid ?? "?"})\nwatching: ${watched.join(", ") || "(none)"}\n`
+        );
+      } catch (err) {
+        process.stdout.write(`daemon: running (error: ${String(err)})\n`);
+      }
       return 0;
     }
     default:
