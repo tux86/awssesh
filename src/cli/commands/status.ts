@@ -1,7 +1,6 @@
 import { request, isDaemonAlive } from "../../daemon/client";
 import type { ProfileState } from "../../daemon/protocol";
-import { discoverProfiles, findCachedToken } from "../../aws/sso";
-import { loadSettings } from "../../aws/settings";
+import { buildLocalProfileStates } from "../../aws/profileState";
 
 function minsLeft(expiresAt: string | null, now: Date): string {
   if (!expiresAt) return "—";
@@ -20,26 +19,6 @@ export function formatStatusTable(rows: ProfileState[], now: Date): string {
     .join("\n");
 }
 
-async function localState(): Promise<ProfileState[]> {
-  const favorites = new Set(loadSettings().favoriteProfiles);
-  const now = new Date();
-  const profiles = await discoverProfiles();
-  const states: ProfileState[] = [];
-  for (const p of profiles) {
-    const cached = await findCachedToken(p);
-    const ssoValid = cached !== null && cached.expiresAt > now;
-    const expiresAt = cached ? cached.expiresAt.toISOString() : null;
-    states.push({
-      name: p.name,
-      status: ssoValid ? "valid" : "needs-login",
-      expiresAt,
-      favorite: favorites.has(p.name),
-      accountId: p.ssoAccountId,
-    });
-  }
-  return states;
-}
-
 export async function runStatus(): Promise<number> {
   const now = new Date();
   let rows: ProfileState[];
@@ -47,7 +26,7 @@ export async function runStatus(): Promise<number> {
     const msg = await request({ type: "snapshot" });
     rows = msg.type === "state" ? msg.profiles : [];
   } else {
-    rows = await localState();
+    rows = await buildLocalProfileStates();
   }
   process.stdout.write(formatStatusTable(rows, now) + "\n");
   return 0;
