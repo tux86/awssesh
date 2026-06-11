@@ -131,7 +131,6 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
         </StatusMessage>
         <Box marginTop={1}>
           <Key k="Esc">back</Key>
-          <Key k="q">quit</Key>
         </Box>
       </Box>
     );
@@ -143,7 +142,7 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
         <Text color="yellow">SSO login required for {profile.name}</Text>
         <Spinner label="Initializing device authorization..." />
         <Box marginTop={1}>
-          <Key k="q">quit</Key>
+          <Key k="Esc">cancel</Key>
         </Box>
       </Box>
     );
@@ -171,7 +170,6 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
           <Key k="⏎">open browser</Key>
           <Key k="c">copy URL</Key>
           <Key k="Esc">cancel</Key>
-          <Key k="q">quit</Key>
         </Box>
       </Box>
     </Box>
@@ -266,17 +264,13 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   useInput(
     (input, key) => {
       if (!pendingLogin) return;
-      if (input === "q") {
-        exit();
-        return;
-      }
       if (authError) {
         if (key.escape) setPendingLogin(null);
         return;
       }
       if (key.return) handleEnter();
       if (input === "c") handleCopy();
-      if (key.escape && !authorizing) setPendingLogin(null);
+      if (key.escape) setPendingLogin(null);
     },
     { isActive: !!pendingLogin },
   );
@@ -449,7 +443,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   if (view === "settings") {
     return (
       <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
-        <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} onQuit={() => exit()} />
+        <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} />
       </App>
     );
   }
@@ -466,7 +460,6 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
             region={sso?.ssoRegion}
             startUrl={sso?.ssoStartUrl}
             onBack={() => setView("dashboard")}
-            onQuit={() => exit()}
           />
         </App>
       );

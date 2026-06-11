@@ -9,17 +9,12 @@ interface Props {
   region?: string;
   startUrl?: string;
   onBack: () => void;
-  onQuit: () => void;
 }
 
-export function Details({ profile, arn, region, startUrl, onBack, onQuit }: Props) {
-  useInput((input, key) => {
+export function Details({ profile, arn, region, startUrl, onBack }: Props) {
+  useInput((_input, key) => {
     if (key.escape || key.return) {
       onBack();
-      return;
-    }
-    if (input === "q") {
-      onQuit();
     }
   });
   const row = (label: string, value: string) => (
@@ -38,9 +33,7 @@ export function Details({ profile, arn, region, startUrl, onBack, onQuit }: Prop
       {row("expires", profile.expiresAt ?? "—")}
       {row("sso url", startUrl ?? "—")}
       <Box marginTop={1}>
-        <Key k="⏎">back</Key>
         <Key k="Esc">back</Key>
-        <Key k="q">quit</Key>
       </Box>
     </Box>
   );

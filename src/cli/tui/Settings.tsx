@@ -7,19 +7,14 @@ interface Props {
   settings: AppSettings;
   onChange: (next: AppSettings) => void;
   onBack: () => void;
-  onQuit: () => void;
 }
 
-export function Settings({ settings, onChange, onBack, onQuit }: Props) {
+export function Settings({ settings, onChange, onBack }: Props) {
   const [cursor, setCursor] = useState(0);
   const items = ["notifications", "refreshLeadMinutes", "autoStartDaemon"] as const;
   useInput((input, key) => {
     if (key.escape) {
       onBack();
-      return;
-    }
-    if (input === "q") {
-      onQuit();
       return;
     }
     if (key.upArrow || input === "k") {
@@ -61,7 +56,6 @@ export function Settings({ settings, onChange, onBack, onQuit }: Props) {
         <Key k="space/⏎">toggle</Key>
         <Key k="←→">adjust</Key>
         <Key k="Esc">back</Key>
-        <Key k="q">quit</Key>
       </Box>
     </Box>
   );
