@@ -6,21 +6,57 @@
 
 Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
+SSOmatic runs a real per-host background daemon (single instance, Unix socket). It keeps ★ favorite profiles' role credentials fresh in an expiry-aware manner while the SSO token is valid, and sends a desktop notification when an interactive browser login is required — the daemon never opens a browser itself. The TUI attaches to the daemon over the socket for live state; any terminal that runs `ssomatic` while the daemon is up shows the live state.
+
 ## Structure
 
 ```
 ssomatic/
 ├── src/
 │   ├── aws/                   # Shared AWS logic (UI-agnostic)
-│   │   ├── sso.ts             # SSO profiles, tokens, refresh, settings
-│   │   ├── sso.test.ts        # Unit tests for sso.ts
+│   │   ├── sso.ts             # SSO profiles, tokens, refresh
+│   │   ├── sso.test.ts
+│   │   ├── settings.ts        # Persistent settings (favorites, notifications, interval)
+│   │   ├── settings.test.ts
+│   │   ├── console.ts         # AWS console URL builders
+│   │   ├── console.test.ts
+│   │   ├── profileState.ts    # Profile state helpers
 │   │   ├── aws.ts             # STS identity utilities
 │   │   ├── utils.ts           # Clipboard, JSON formatting
-│   │   └── utils.test.ts      # Unit tests for utils.ts
+│   │   └── utils.test.ts
+│   ├── daemon/                # Per-host background daemon (Unix-socket server + expiry-aware scheduler)
+│   │   ├── protocol.ts        # Wire protocol types + ndjson codec
+│   │   ├── protocol.test.ts
+│   │   ├── lifecycle.ts       # Single-instance lock + pid management
+│   │   ├── lifecycle.test.ts
+│   │   ├── scheduler.ts       # Expiry-aware refresh scheduler
+│   │   ├── scheduler.test.ts
+│   │   ├── server.ts          # Unix-socket daemon server
+│   │   ├── server.test.ts
+│   │   ├── client.ts          # Daemon socket client
+│   │   └── index.ts           # Daemon entry point
 │   └── cli/                   # Terminal UI (React/Ink)
-│       ├── index.tsx          # Entry point
-│       ├── components/        # Ink UI components
-│       └── hooks/             # Ink hooks (useIdentity, useCopy)
+│       ├── index.tsx          # Entry point + argument router
+│       ├── args.ts            # CLI argument parsing
+│       ├── args.test.ts
+│       ├── commands/          # Non-TUI subcommands
+│       │   ├── status.ts      # `ssomatic status`
+│       │   ├── status.test.ts
+│       │   ├── export.ts      # `ssomatic export <profile>`
+│       │   ├── refresh.ts     # `ssomatic refresh [profile]`
+│       │   └── daemon.ts      # `ssomatic daemon start|stop|status`
+│       ├── tui/               # TUI screens
+│       │   ├── Dashboard.tsx  # Main profile list view
+│       │   ├── Details.tsx    # Profile detail view
+│       │   ├── Settings.tsx   # Settings screen
+│       │   └── useDaemon.ts   # Hook: connects TUI to the daemon socket
+│       ├── components/        # Shared Ink UI components
+│       │   ├── App.tsx        # Root container
+│       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
+│       │   ├── Spinner.tsx
+│       │   └── StatusMessage.tsx
+│       └── hooks/             # Shared hooks
+│           └── useCopy.tsx    # Clipboard copy with feedback
 ├── dist/                      # Build output
 │   └── cli.js                 # Node CLI bundle (npm bin)
 ├── docs/screenshots/          # Demo GIFs for README
@@ -42,6 +78,8 @@ ssomatic/
 
 ## Commands
 
+### Dev / Build / Test
+
 ```bash
 bun install           # Install dependencies
 bun run start         # Run CLI
@@ -51,11 +89,35 @@ bun run lint          # Run ESLint
 bun test              # Run unit tests
 ```
 
-## Keyboard Shortcuts
+### Runtime CLI subcommands
+
+```bash
+ssomatic                        # Launch the interactive TUI
+ssomatic --daemon               # Launch the TUI and start the background daemon
+ssomatic status                 # Print profile statuses and exit
+ssomatic refresh [profile]      # Refresh a profile (or all favorites) now
+ssomatic export <profile>       # Print export AWS_* lines (use with eval $(ssomatic export <profile>))
+ssomatic daemon start|stop|status
+ssomatic --version
+```
+
+## Keyboard Shortcuts (Dashboard)
 
 | Key | Action |
 |-----|--------|
-| `Escape` | Back |
+| `↑` / `↓` / `k` / `j` | Move cursor |
+| `space` | Select / deselect profile |
+| `a` | Select all / deselect all |
+| `⏎` | Open details |
+| `r` | Refresh selected (or current) profile(s) |
+| `b` | Run daemon in background |
+| `f` | Toggle ★ favorite |
+| `c` | Copy export (`AWS_*` env vars) |
+| `y` | Copy profile name |
+| `o` | Open AWS console |
+| `/` | Filter profiles |
+| `s` | Open settings |
+| `Esc` | Back |
 | `q` | Quit |
 
 ## Commits & Releases
