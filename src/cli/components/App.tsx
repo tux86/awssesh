@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text, useApp, useInput, render as inkRender } from "ink";
+import { Box, Text, render as inkRender } from "ink";
 import { ActionBar, ActionItem } from "./ActionBar.js";
 
 export interface AppProps {
@@ -19,18 +19,8 @@ export function App({
   actions,
   statusItems,
   children,
-  onQuit,
 }: AppProps) {
-  const { exit } = useApp();
   const hasStatusItems = !!statusItems && statusItems.length > 0;
-
-  // Global keyboard handler
-  useInput((input, key) => {
-    if (input === "q" || (key.ctrl && input === "c")) {
-      onQuit?.();
-      exit();
-    }
-  });
 
   return (
     <Box flexDirection="column" padding={1}>

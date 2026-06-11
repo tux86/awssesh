@@ -50,6 +50,7 @@ interface UseDeviceAuthOptions {
 function useDeviceAuth({ pendingLogin, onLoginComplete, onCopyUrl }: UseDeviceAuthOptions) {
   const [deviceAuth, setDeviceAuth] = useState<DeviceAuthInfo | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
+  const [authError, setAuthError] = useState(false);
   const { copy, copied } = useCopy();
   const currentProfileRef = React.useRef<string | null>(null);
 
@@ -62,10 +63,17 @@ function useDeviceAuth({ pendingLogin, onLoginComplete, onCopyUrl }: UseDeviceAu
       currentProfileRef.current = profileName;
       setDeviceAuth(null);
       setAuthorizing(false);
+      setAuthError(false);
 
       // Start new device authorization if we have a profile
       if (pendingLogin) {
-        startDeviceAuthorization(pendingLogin).then(setDeviceAuth);
+        startDeviceAuthorization(pendingLogin).then((info) => {
+          if (info === null) {
+            setAuthError(true);
+          } else {
+            setDeviceAuth(info);
+          }
+        });
       }
     }
   }, [pendingLogin]);
@@ -94,6 +102,7 @@ function useDeviceAuth({ pendingLogin, onLoginComplete, onCopyUrl }: UseDeviceAu
   return {
     deviceAuth,
     authorizing,
+    authError,
     copied,
     handleEnter,
     handleCopy,
@@ -107,11 +116,24 @@ function useDeviceAuth({ pendingLogin, onLoginComplete, onCopyUrl }: UseDeviceAu
 interface LoginPromptProps {
   profile: SSOProfile;
   deviceAuth: DeviceAuthInfo | null;
+  authError?: boolean;
   copied?: boolean;
   authorizing?: boolean;
 }
 
-function LoginPrompt({ profile, deviceAuth, copied = false, authorizing = false }: LoginPromptProps) {
+function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, authorizing = false }: LoginPromptProps) {
+  if (authError) {
+    return (
+      <Box marginTop={1} flexDirection="column">
+        <Text color="yellow">SSO login required for {profile.name}</Text>
+        <StatusMessage type="error">
+          Failed to start device authorization. Check your network and SSO configuration.
+        </StatusMessage>
+        <Text dimColor>Press Esc to go back</Text>
+      </Box>
+    );
+  }
+
   if (!deviceAuth) {
     return (
       <Box marginTop={1} flexDirection="column">
@@ -224,7 +246,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
     [reloadLocal],
   );
 
-  const { deviceAuth, authorizing, copied, handleEnter, handleCopy } = useDeviceAuth({
+  const { deviceAuth, authorizing, authError, copied, handleEnter, handleCopy } = useDeviceAuth({
     pendingLogin,
     onLoginComplete: handleLoginComplete,
   });
@@ -233,6 +255,10 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   useInput(
     (input, key) => {
       if (!pendingLogin) return;
+      if (authError) {
+        if (key.escape) setPendingLogin(null);
+        return;
+      }
       if (key.return) handleEnter();
       if (input === "c") handleCopy();
       if (key.escape && !authorizing) setPendingLogin(null);
@@ -397,6 +423,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
         <LoginPrompt
           profile={pendingLogin}
           deviceAuth={deviceAuth}
+          authError={authError}
           copied={copied}
           authorizing={authorizing}
         />
