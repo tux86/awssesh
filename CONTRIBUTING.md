@@ -15,14 +15,17 @@ git clone https://github.com/tux86/ssomatic.git
 cd ssomatic
 bun install
 
-# Run CLI
+# Run the CLI from source
 bun run start
 
-# Run web UI (dev mode)
+# Run with --watch (auto-restart on changes)
 bun run dev
 
 # Lint
 bun run lint
+
+# Run unit tests
+bun test
 ```
 
 ## Project Structure
@@ -30,11 +33,8 @@ bun run lint
 ```
 ssomatic/
 ├── src/
-│   ├── aws/           # Shared AWS credential logic
-│   ├── cli/           # Terminal UI (React/Ink) + entry point
-│   └── web/
-│       ├── server.ts  # Bun HTTP server + RPC bridge
-│       └── client/    # Web UI (React/Vite/Tailwind)
+│   ├── aws/           # AWS credential logic (sso.ts, aws.ts, utils.ts) + unit tests
+│   └── cli/           # Terminal UI (React/Ink) + entry point
 ├── .github/           # Workflows and templates
 └── package.json
 ```
@@ -49,19 +49,19 @@ type(scope): description
 
 **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
-**Scopes:** `cli`, `web`, `aws`, `deps`, `ci`
+**Scopes:** `cli`, `aws`, `deps`, `ci`
 
 Commits are validated by [commitlint](https://commitlint.js.org/) via a Git hook.
 
 ## Releases
 
-Releases are fully automated via [semantic-release](https://semantic-release.gitbook.io/). When commits land on `main`, the CI pipeline determines the version bump from commit types (`feat` → minor, `fix` → patch) and creates a GitHub release with the binary attached. No manual steps needed.
+Releases are fully automated via [semantic-release](https://semantic-release.gitbook.io/). When commits land on `main`, the CI pipeline determines the version bump from commit types (`feat` → minor, `fix` → patch), creates a GitHub release, and publishes the package to npm. No manual steps needed.
 
 ## Pull Request Process
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes with conventional commits
-3. Ensure `bun run lint` passes
+3. Ensure `bun run lint` and `bun test` pass
 4. Open a PR using the provided template
 
 ## Code Style
@@ -69,14 +69,14 @@ Releases are fully automated via [semantic-release](https://semantic-release.git
 - TypeScript strict mode
 - React functional components with hooks
 - Business logic in `src/aws/sso.ts` (UI-agnostic)
-- CLI components use Ink; web components use React/Tailwind
+- CLI components use Ink
 
 ## Building
 
 ```bash
 bun run build
 
-# Output: dist/ssomatic + dist/web/
+# Output: dist/cli.js (the npm bin)
 ```
 
 ## Questions?

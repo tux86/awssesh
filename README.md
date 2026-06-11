@@ -1,10 +1,11 @@
 # SSOmatic
 
-Interactive AWS SSO credential manager with CLI and web UI.
+Interactive AWS SSO credential manager for your terminal.
 
+[![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
+[![npm downloads](https://img.shields.io/npm/dm/ssomatic)](https://www.npmjs.com/package/ssomatic)
 [![CI](https://github.com/tux86/ssomatic/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/ci.yml)
 [![Release](https://github.com/tux86/ssomatic/actions/workflows/release.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/release.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/tux86/ssomatic)](https://github.com/tux86/ssomatic/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/tux86/ssomatic)](https://github.com/tux86/ssomatic)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh)
@@ -12,18 +13,21 @@ Interactive AWS SSO credential manager with CLI and web UI.
 
 ---
 
-## Demo
+## Install
 
-### CLI
+```bash
+# Run without installing
+npx ssomatic
+bunx ssomatic
+
+# Or install globally
+npm install -g ssomatic
+```
+
+## Demo
 
 <p align="center">
   <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
-</p>
-
-### Web UI
-
-<p align="center">
-  <img src="docs/screenshots/web-demo.gif" alt="SSOmatic Web UI Demo" width="720">
 </p>
 
 ## Features
@@ -32,38 +36,23 @@ Interactive AWS SSO credential manager with CLI and web UI.
 - **Status dashboard** — View credential validity with expiry countdown
 - **Multi-select refresh** — Refresh multiple profiles at once with SSO device auth
 - **Auto-refresh daemon** — Background process to keep credentials fresh
-- **Built-in web UI** — Toggle a web server from the CLI with `w` for a browser-based dashboard
 - **Desktop notifications** — Alerts when credentials expire (macOS/Linux)
-- **Persistent settings** — Notifications, favorites, web server, port — all saved across sessions
+- **Persistent settings** — Notifications and favorites saved across sessions
 
 ## Prerequisites
 
 - [AWS CLI v2](https://aws.amazon.com/cli/) configured with SSO profiles in `~/.aws/config`
 
-## Install
+## Usage
 
-### Homebrew (macOS / Linux)
+Launch it (`ssomatic`, or `npx ssomatic` / `bunx ssomatic`) and use the interactive menu:
 
-```bash
-brew install tux86/tap/ssomatic
-```
+- **Check status** — see every SSO profile and whether its credentials are valid or expired
+- **Refresh now** — log in and refresh one or more profiles (opens the SSO device-authorization flow)
+- **Auto-refresh** — keep selected profiles refreshed automatically on an interval
+- **Settings** — toggle notifications, set the default interval, and pick favorite profiles
 
-### Download binary
-
-Grab the latest binary for your platform from [Releases](https://github.com/tux86/ssomatic/releases):
-
-| Platform | Binary |
-|----------|--------|
-| macOS (Apple Silicon) | `ssomatic-darwin-arm64.bin` |
-| Linux (x64) | `ssomatic-linux-x64.bin` |
-| Linux (ARM64) | `ssomatic-linux-arm64.bin` |
-
-```bash
-chmod +x ssomatic-*.bin
-mv ssomatic-*.bin /usr/local/bin/ssomatic
-```
-
-### From source
+## Development
 
 Requires [Bun](https://bun.sh) >= 1.0.
 
@@ -71,25 +60,12 @@ Requires [Bun](https://bun.sh) >= 1.0.
 git clone https://github.com/tux86/ssomatic.git
 cd ssomatic
 bun install
-bun run build
-./dist/ssomatic
-```
 
-## Usage
-
-```bash
-ssomatic                # Launch the CLI
-```
-
-Press `w` to toggle the built-in web UI server. The URL is shown at the bottom of the terminal. Web server state and port are saved in settings.
-
-## Development
-
-```bash
 bun run start         # Run from source
 bun run dev           # Run with --watch (auto-restart on changes)
-bun run build         # Build web assets + compiled binary
+bun run build         # Build the Node CLI bundle (dist/cli.js)
 bun run lint          # Run ESLint
+bun test              # Run unit tests
 ```
 
 ## Project Structure
@@ -98,14 +74,12 @@ bun run lint          # Run ESLint
 ssomatic/
 ├── src/
 │   ├── aws/           # Shared AWS credential logic (sso.ts, aws.ts, utils.ts)
-│   ├── cli/           # Terminal UI (React/Ink) — entry point
-│   │   ├── index.tsx   # Main app + web server toggle
-│   │   ├── components/ # Ink UI components
-│   │   └── hooks/      # useIdentity, useCopy
-│   └── web/
-│       ├── server.ts   # Bun HTTP server + RPC bridge
-│       └── client/     # Web UI SPA (React/Vite/Tailwind)
-├── dist/              # Build output (single binary, web assets embedded)
+│   │   └── *.test.ts   # Unit tests
+│   └── cli/           # Terminal UI (React/Ink) — entry point
+│       ├── index.tsx   # Main app
+│       ├── components/ # Ink UI components
+│       └── hooks/      # useIdentity, useCopy
+├── dist/              # Build output (dist/cli.js — the npm bin)
 └── package.json
 ```
 
@@ -117,7 +91,6 @@ ssomatic/
 | `Enter` | Select |
 | `Space` | Toggle selection |
 | `a` | Select all / none |
-| `w` | Toggle web server |
 | `c` | Copy URL |
 | `Escape` | Back |
 | `q` | Quit |

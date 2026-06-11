@@ -51,19 +51,6 @@ export default [
     },
   },
   {
-    files: ["src/web/client/**/*.{ts,tsx}"],
-    languageOptions: {
-      globals: {
-        window: "readonly",
-        document: "readonly",
-        HTMLElement: "readonly",
-        fetch: "readonly",
-        Notification: "readonly",
-        Response: "readonly",
-      },
-    },
-  },
-  {
     ignores: ["node_modules", "dist", "*.config.js", "*.config.ts", "**/*.generated.ts"],
   },
 ];

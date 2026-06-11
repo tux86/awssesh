@@ -23,7 +23,6 @@ export default {
       'always',
       [
         'cli',
-        'web',
         'aws',
         'ci',
         'deps',

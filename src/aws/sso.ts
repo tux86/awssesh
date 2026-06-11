@@ -1,6 +1,6 @@
 /**
  * SSOmatic - Core business logic (UI-agnostic)
- * Shared between CLI (Ink) and Web (React) interfaces
+ * Used by the CLI (Ink) interface
  */
 
 import {
@@ -11,6 +11,9 @@ import {
 } from "@aws-sdk/client-sso-oidc";
 import { SSOClient, GetRoleCredentialsCommand } from "@aws-sdk/client-sso";
 import { parse as parseIni, stringify as stringifyIni } from "ini";
+import { readFile, writeFile, mkdir, chmod } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -55,8 +58,6 @@ export interface AppSettings {
   notifications: boolean;
   defaultInterval: number;
   favoriteProfiles: string[];
-  webServer: boolean;
-  webPort: number;
   lastRefresh?: string;
 }
 
@@ -88,8 +89,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifications: true,
   defaultInterval: 30,
   favoriteProfiles: [],
-  webServer: false,
-  webPort: 9876,
 };
 
 export const REFRESH_INTERVALS = [
@@ -105,7 +104,7 @@ export const REFRESH_INTERVALS = [
 
 export async function parseIniFile(path: string): Promise<ParsedConfig> {
   try {
-    const content = await Bun.file(path).text();
+    const content = await readFile(path, "utf8");
     return parseIni(content);
   } catch {
     return {};
@@ -121,12 +120,13 @@ export async function writeCredentials(profileName: string, credentials: AWSCred
     ...(credentials.sessionToken && { aws_session_token: credentials.sessionToken }),
   };
 
-  await Bun.write(CREDENTIALS_PATH, stringifyIni(existing));
+  await mkdir(AWS_DIR, { recursive: true });
+  await writeFile(CREDENTIALS_PATH, stringifyIni(existing));
 }
 
 export async function loadSettings(): Promise<AppSettings> {
   try {
-    const content = await Bun.file(SETTINGS_PATH).text();
+    const content = await readFile(SETTINGS_PATH, "utf8");
     return { ...DEFAULT_SETTINGS, ...JSON.parse(content) };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -134,7 +134,8 @@ export async function loadSettings(): Promise<AppSettings> {
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  await Bun.write(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+  await mkdir(AWS_DIR, { recursive: true });
+  await writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,12 +149,11 @@ interface CachedToken {
 
 export async function findCachedToken(profile: SSOProfile): Promise<CachedToken | null> {
   try {
-    const crypto = await import("crypto");
     const cacheKey = profile.ssoSession ?? profile.ssoStartUrl;
-    const hash = crypto.createHash("sha1").update(cacheKey).digest("hex");
+    const hash = createHash("sha1").update(cacheKey).digest("hex");
     const cacheFile = `${SSO_CACHE_DIR}/${hash}.json`;
 
-    const content = await Bun.file(cacheFile).json();
+    const content = JSON.parse(await readFile(cacheFile, "utf8"));
     if (content.accessToken && content.expiresAt) {
       return {
         accessToken: content.accessToken,
@@ -275,12 +275,10 @@ export async function startDeviceAuthorization(profile: SSOProfile): Promise<Dev
 
 export async function saveSSOTokenToCache(profile: SSOProfile, tokenInfo: TokenInfo): Promise<void> {
   try {
-    const { mkdir, chmod } = await import("fs/promises");
     await mkdir(SSO_CACHE_DIR, { recursive: true });
 
-    const crypto = await import("crypto");
     const cacheKey = profile.ssoSession ?? profile.ssoStartUrl;
-    const hash = crypto.createHash("sha1").update(cacheKey).digest("hex");
+    const hash = createHash("sha1").update(cacheKey).digest("hex");
     const cacheFile = `${SSO_CACHE_DIR}/${hash}.json`;
 
     const cacheData = {
@@ -290,7 +288,7 @@ export async function saveSSOTokenToCache(profile: SSOProfile, tokenInfo: TokenI
       expiresAt: tokenInfo.expiresAt.toISOString(),
     };
 
-    await Bun.write(cacheFile, JSON.stringify(cacheData, null, 2));
+    await writeFile(cacheFile, JSON.stringify(cacheData, null, 2));
     await chmod(cacheFile, 0o600);
   } catch {
     // Silently fail - credentials will still work via credentials file
@@ -372,7 +370,7 @@ export async function getCredentialsWithToken(
 
 export function openBrowser(url: string): void {
   const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  Bun.spawn([cmd, url], { stdout: "ignore", stderr: "ignore" });
+  spawn(cmd, [url], { stdio: "ignore" }).on("error", () => {});
 }
 
 export async function performSSOLoginFlow(
@@ -419,13 +417,12 @@ export async function sendNotification(title: string, message: string): Promise<
   const os = process.platform;
   try {
     if (os === "darwin") {
-      await Bun.spawn([
-        "osascript",
+      spawn("osascript", [
         "-e",
         `display notification "${message}" with title "${title}"`,
-      ]).exited;
+      ], { stdio: "ignore" }).on("error", () => {});
     } else if (os === "linux") {
-      await Bun.spawn(["notify-send", title, message]).exited;
+      spawn("notify-send", [title, message], { stdio: "ignore" }).on("error", () => {});
     }
   } catch {
     // Silently fail

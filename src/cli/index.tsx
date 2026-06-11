@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * SSOmatic - Interactive TUI for managing AWS SSO credentials
  */
@@ -38,7 +38,6 @@ import {
   getStatusColor,
   sortByFavorites,
 } from "../aws/sso.js";
-import { startServer, stopServer, isServerRunning } from "../web/server.js";
 import { VERSION, checkForUpdate } from "../version.js";
 
 type ViewState =
@@ -51,8 +50,7 @@ type ViewState =
   | "daemon-running"
   | "settings"
   | "settings-interval"
-  | "settings-favorites"
-  | "settings-webport";
+  | "settings-favorites";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook: useProfiles
@@ -516,7 +514,6 @@ function SSOmatic() {
   const [view, setView] = useState<ViewState>("menu");
   const [selectedProfiles, setSelectedProfiles] = useState<SSOProfile[]>([]);
   const [daemonInterval, setDaemonInterval] = useState(30);
-  const [webUrl, setWebUrl] = useState<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const { exit } = useApp();
 
@@ -525,32 +522,10 @@ function SSOmatic() {
     checkForUpdate().then(setUpdateAvailable);
   }, []);
 
-  // Auto-start web server from saved settings
-  useEffect(() => {
-    if (settings.webServer && !isServerRunning()) {
-      const url = startServer(settings.webPort);
-      setWebUrl(url);
-    }
-    return () => { stopServer(); };
-  }, [settings.webServer, settings.webPort]);
-
   // Handle keyboard for navigation
   useInput((input, key) => {
     if ((input === "b" || key.escape) && view !== "menu" && view !== "daemon-running") {
       setView("menu");
-    }
-    if (input === "w") {
-      if (isServerRunning()) {
-        stopServer();
-        setWebUrl(null);
-        updateSettings({ webServer: false });
-      } else {
-        const url = startServer(settings.webPort);
-        if (url) {
-          setWebUrl(url);
-          updateSettings({ webServer: true });
-        }
-      }
     }
   });
 
@@ -580,11 +555,6 @@ function SSOmatic() {
       label: `Favorite profiles (${settings.favoriteProfiles.length})`,
       value: "favorites",
     },
-    {
-      id: "webport",
-      label: `Web server port: ${settings.webPort}`,
-      value: "webport",
-    },
     { id: "back", label: "Back to main menu", value: "back" },
   ];
 
@@ -595,14 +565,6 @@ function SSOmatic() {
     hint: i.hint,
     value: i.value,
   }));
-
-  // Port items
-  const portItems: ListItemData[] = [
-    { id: "3000", label: "3000", value: 3000 },
-    { id: "8080", label: "8080", value: 8080 },
-    { id: "8888", label: "8888", value: 8888 },
-    { id: "9876", label: "9876", hint: "default", value: 9876 },
-  ];
 
   // Profile items for multi-select
   const profileItems: MultiSelectItemData[] = sortByFavorites(
@@ -657,9 +619,6 @@ function SSOmatic() {
       case "favorites":
         setView("settings-favorites");
         break;
-      case "webport":
-        setView("settings-webport");
-        break;
       case "back":
         setView("menu");
         break;
@@ -668,19 +627,6 @@ function SSOmatic() {
 
   const handleIntervalSelect = async (item: ListItemData) => {
     await updateSettings({ defaultInterval: item.value as number });
-    setView("settings");
-  };
-
-  const handlePortSelect = async (item: ListItemData) => {
-    const newPort = item.value as number;
-    if (isServerRunning()) {
-      stopServer();
-      await updateSettings({ webPort: newPort });
-      const url = startServer(newPort);
-      setWebUrl(url ?? null);
-    } else {
-      await updateSettings({ webPort: newPort });
-    }
     setView("settings");
   };
 
@@ -884,34 +830,17 @@ function SSOmatic() {
           </>
         );
 
-      case "settings-webport":
-        return (
-          <>
-            <Box marginBottom={1}>
-              <Text color="cyan">?</Text>
-              <Text> Select web server port</Text>
-            </Box>
-            <List
-              items={portItems}
-              onSelect={handlePortSelect}
-              maxVisible={5}
-            />
-          </>
-        );
-
       default:
         return null;
     }
   };
 
-  const webAction = { keys: "w", label: webUrl ? "Stop Web" : "Start Web" };
-
   const getActions = () => {
     switch (view) {
       case "menu":
-        return [ACTIONS.navigate, ACTIONS.select, webAction, ACTIONS.quit];
+        return [ACTIONS.navigate, ACTIONS.select, ACTIONS.quit];
       case "status":
-        return [ACTIONS.back, webAction, ACTIONS.quit];
+        return [ACTIONS.back, ACTIONS.quit];
       case "refresh-select":
       case "daemon-select":
       case "settings-favorites":
@@ -920,25 +849,15 @@ function SSOmatic() {
           { keys: "a", label: "All/None" },
           ACTIONS.select,
           ACTIONS.back,
-          webAction,
         ];
       case "daemon-running":
-        return [{ keys: "^C", label: "Stop" }, webAction, ACTIONS.quit];
+        return [{ keys: "^C", label: "Stop" }, ACTIONS.quit];
       default:
-        return [ACTIONS.navigate, ACTIONS.select, ACTIONS.back, webAction];
+        return [ACTIONS.navigate, ACTIONS.select, ACTIONS.back];
     }
   };
 
   const statusItems = [
-    webUrl ? (
-      <Text key="web">
-        <Text color="green">●</Text>
-        <Text dimColor> Web </Text>
-        <Text color="cyan">{webUrl}</Text>
-      </Text>
-    ) : (
-      <Text key="web" dimColor>○ Web off</Text>
-    ),
     ...(updateAvailable ? [
       <Text key="update" color="yellow">
         ↑ v{updateAvailable} available
