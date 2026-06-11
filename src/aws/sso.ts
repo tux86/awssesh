@@ -120,6 +120,7 @@ export async function writeCredentials(profileName: string, credentials: AWSCred
     ...(credentials.sessionToken && { aws_session_token: credentials.sessionToken }),
   };
 
+  await mkdir(AWS_DIR, { recursive: true });
   await writeFile(CREDENTIALS_PATH, stringifyIni(existing));
 }
 
@@ -133,6 +134,7 @@ export async function loadSettings(): Promise<AppSettings> {
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
+  await mkdir(AWS_DIR, { recursive: true });
   await writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 
