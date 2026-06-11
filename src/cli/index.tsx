@@ -5,6 +5,12 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useApp, useInput } from "ink";
+import { parseArgs } from "./args.js";
+import { runStatus } from "./commands/status.js";
+import { runExport } from "./commands/export.js";
+import { runRefresh } from "./commands/refresh.js";
+import { runDaemonCommand } from "./commands/daemon.js";
+import { runDaemon } from "../daemon/index.js";
 import {
   App,
   renderApp,
@@ -904,9 +910,55 @@ function SSOmatic() {
 // Entry Point
 // ─────────────────────────────────────────────────────────────────────────────
 
-if (process.argv.includes("--version") || process.argv.includes("-v")) {
-  console.log(`ssomatic v${VERSION}`);
-  process.exit(0);
+const HELP = `ssomatic — interactive AWS SSO credential manager
+
+Usage:
+  ssomatic                 launch the interactive TUI
+  ssomatic --daemon        launch the TUI and start the background daemon
+  ssomatic status          print profile statuses and exit
+  ssomatic refresh [name]  refresh a profile (or all favorites) now
+  ssomatic export <name>   print export AWS_* lines for eval $(...)
+  ssomatic daemon start|stop|status
+  ssomatic --version
+`;
+
+function launchTui(_startDaemon: boolean): void {
+  // _startDaemon is intentionally unused: daemon flag wiring comes in Task 12.
+  renderApp(<SSOmatic />);
 }
 
-renderApp(<SSOmatic />);
+async function main(): Promise<void> {
+  const parsed = parseArgs(process.argv.slice(2));
+  switch (parsed.kind) {
+    case "version":
+      process.stdout.write(`ssomatic v${VERSION}\n`);
+      return;
+    case "help":
+      process.stdout.write(HELP);
+      return;
+    case "status":
+      process.exit(await runStatus());
+      return;
+    case "export":
+      process.exit(await runExport(parsed.profile));
+      return;
+    case "refresh":
+      process.exit(await runRefresh(parsed.profile));
+      return;
+    case "daemon":
+      process.exit(await runDaemonCommand(parsed.sub));
+      return;
+    case "__daemon":
+      await runDaemon(); // long-lived; do not exit
+      return;
+    case "error":
+      process.stderr.write(parsed.message + "\n");
+      process.exit(1);
+      return;
+    case "tui":
+      launchTui(parsed.daemon);
+      return;
+  }
+}
+
+void main();
