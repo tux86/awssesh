@@ -1,3 +1,20 @@
+## [1.3.0](https://github.com/tux86/ssomatic/compare/v1.2.3...v1.3.0) (2026-06-11)
+
+### ⚠ BREAKING CHANGES
+
+* the web UI is removed and Homebrew/binary distribution is
+replaced by npm (npx ssomatic / npm i -g ssomatic).
+
+### Features
+
+* distribute as a CLI-only npm package ([5307746](https://github.com/tux86/ssomatic/commit/5307746d89817027319176b4da3fd7a60f6599c7))
+
+### Refactoring
+
+* **aws:** replace Bun APIs with node:fs/promises and node:child_process ([ffcc9c0](https://github.com/tux86/ssomatic/commit/ffcc9c03f57059a9f146f3d0e999dde64e2c6fdf))
+* **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/ssomatic/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
+* drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/ssomatic/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
+
 ## [1.2.3](https://github.com/tux86/ssomatic/compare/v1.2.2...v1.2.3) (2026-03-26)
 
 ### Bug Fixes
