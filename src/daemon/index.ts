@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { openSync, mkdirSync } from "node:fs";
+import { openSync, closeSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { startServer } from "./server";
@@ -65,7 +65,7 @@ async function computeState(): Promise<ProfileState[]> {
         if (r.success) {
           notified.delete(p.name);
           status = "valid";
-          if (r.expiresAt) credExpiry.set(p.name, r.expiresAt);
+          credExpiry.set(p.name, r.expiresAt ?? new Date(Date.now() + 50 * 60 * 1000));
         } else if (r.needsLogin) {
           status = "needs-login";
           credExpiry.delete(p.name);
@@ -111,8 +111,9 @@ export async function runDaemon(): Promise<void> {
       const p = profiles.find((x) => x.name === name);
       if (!p) return;
       const r = await coreRefresh(p);
-      if (r.success && r.expiresAt) {
-        credExpiry.set(name, r.expiresAt);
+      if (r.success) {
+        notified.delete(name);
+        credExpiry.set(name, r.expiresAt ?? new Date(Date.now() + 50 * 60 * 1000));
       } else if (r.needsLogin) {
         credExpiry.delete(name);
       }
@@ -139,6 +140,7 @@ export async function spawnDetached(): Promise<void> {
     stdio: ["ignore", out, out],
   });
   child.unref();
+  closeSync(out);
   // Brief pause so the daemon has time to bind the socket before the caller checks it.
   await new Promise((r) => setTimeout(r, 300));
 }
