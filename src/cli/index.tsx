@@ -294,7 +294,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
     [daemon, findProfile, settings.notifications, reloadLocal],
   );
 
-  const handleToggleFavorite = useCallback(
+  const handleToggleAuto = useCallback(
     (name: string) => {
       const isFav = settings.favoriteProfiles.includes(name);
       const favoriteProfiles = isFav
@@ -304,7 +304,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
       setSettings(next);
       saveSettings(next);
       void daemon.setFavorite(name, !isFav); // no-op if daemon down
-      void reloadLocal(); // update ★ immediately when no daemon
+      void reloadLocal(); // update the ⟳ marker immediately when no daemon
     },
     [settings, daemon, reloadLocal],
   );
@@ -401,7 +401,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   // Loading / seeding state.
   if (seeding && localStates.length === 0) {
     return (
-      <App title="SSOmatic" icon="🔐" color="cyan" actions={[ACTIONS.quit]} onQuit={() => exit()}>
+      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <Spinner label="Discovering SSO profiles..." />
       </App>
     );
@@ -410,7 +410,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   // No profiles found.
   if (!seeding && ssoProfiles.length === 0 && localStates.length === 0) {
     return (
-      <App title="SSOmatic" icon="🔐" color="cyan" actions={[ACTIONS.quit]} onQuit={() => exit()}>
+      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <StatusMessage type="error">No SSO profiles found in ~/.aws/config</StatusMessage>
       </App>
     );
@@ -433,7 +433,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
 
   if (view === "settings") {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
+      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
         <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} />
       </App>
     );
@@ -444,7 +444,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
     if (profile) {
       const sso = findProfile(detailName);
       return (
-        <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
+        <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
           <Details
             profile={profile}
             arn={sso?.ssoRoleName}
@@ -458,12 +458,19 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   }
 
   return (
-    <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
+    <App
+      title={`SSOmatic v${VERSION}`}
+      icon="🔐"
+      color="cyan"
+      daemonRunning={daemon.running}
+      statusItems={statusItems}
+      onQuit={() => exit()}
+    >
       <Dashboard
         profiles={displayProfiles}
         daemonRunning={daemon.running}
         onRefresh={(names) => void handleRefresh(names)}
-        onToggleFavorite={handleToggleFavorite}
+        onToggleAuto={handleToggleAuto}
         onRunBackground={handleRunBackground}
         onOpenDetails={handleOpenDetails}
         onOpenConsole={(name) => void handleOpenConsole(name)}

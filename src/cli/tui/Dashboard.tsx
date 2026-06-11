@@ -6,7 +6,7 @@ interface Props {
   profiles: ProfileState[];
   daemonRunning: boolean;
   onRefresh: (names: string[]) => void;
-  onToggleFavorite: (name: string) => void;
+  onToggleAuto: (name: string) => void;
   onRunBackground: () => void;
   onOpenDetails: (name: string) => void;
   onOpenConsole: (name: string) => void;
@@ -16,6 +16,16 @@ interface Props {
   onQuit: () => void;
 }
 
+// Column widths (chars). Total ≈ marker(2)+name(22)+status(15)+expires(10)+account(12).
+const W_MARKER = 2;
+const W_NAME = 22;
+const W_STATUS = 15;
+const W_EXPIRES = 10;
+const W_ACCOUNT = 12;
+
+/** Marker shown for auto-refreshed (favorite) profiles. */
+const AUTO_MARKER = "⟳";
+
 const STATUS_COLOR: Record<ProfileStatusKind, string> = {
   valid: "green",
   refreshing: "cyan",
@@ -24,23 +34,58 @@ const STATUS_COLOR: Record<ProfileStatusKind, string> = {
   error: "red",
 };
 
+const STATUS_LABEL: Record<ProfileStatusKind, string> = {
+  valid: "● valid",
+  refreshing: "● refreshing",
+  expired: "○ expired",
+  "needs-login": "⚠ needs-login",
+  error: "✗ error",
+};
+
 function minsLeft(expiresAt: string | null): string {
   if (!expiresAt) return "—";
   const m = Math.round((new Date(expiresAt).getTime() - Date.now()) / 60000);
   return m <= 0 ? "expired" : `${m}m`;
 }
 
+function pad(s: string, w: number): string {
+  return s.length >= w ? s : s + " ".repeat(w - s.length);
+}
+
+/** A single fixed-width cell. Highlighted rows render inverse; columns never drift. */
+function Cell({
+  text,
+  width,
+  color,
+  dim,
+  highlight,
+}: {
+  text: string;
+  width: number;
+  color?: string;
+  dim?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <Box width={width}>
+      <Text color={color} dimColor={dim} inverse={highlight} wrap="truncate">
+        {pad(text, width)}
+      </Text>
+    </Box>
+  );
+}
+
 export function Dashboard(props: Props) {
   const { profiles } = props;
   const [cursor, setCursor] = useState(0);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [filtering, setFiltering] = useState(false);
 
   const visible = filter
     ? profiles.filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()))
     : profiles;
-  const current = visible[Math.min(cursor, Math.max(0, visible.length - 1))];
+  const cursorIndex = Math.min(cursor, Math.max(0, visible.length - 1));
+  const current = visible[cursorIndex];
 
   useInput((input, key) => {
     if (filtering) {
@@ -52,21 +97,9 @@ export function Dashboard(props: Props) {
     if (key.upArrow || input === "k") setCursor((c) => Math.max(0, c - 1));
     else if (key.downArrow || input === "j")
       setCursor((c) => Math.min(visible.length - 1, c + 1));
-    else if (input === " " && current) {
-      setSelected((s) => {
-        const n = new Set(s);
-        if (n.has(current.name)) n.delete(current.name);
-        else n.add(current.name);
-        return n;
-      });
-    } else if (input === "a") {
-      setSelected((s) =>
-        s.size === visible.length ? new Set() : new Set(visible.map((p) => p.name)),
-      );
-    } else if (input === "r") {
-      const names = selected.size ? [...selected] : current ? [current.name] : [];
-      if (names.length) props.onRefresh(names);
-    } else if (input === "f" && current) props.onToggleFavorite(current.name);
+    else if (input === "r") {
+      if (current) props.onRefresh([current.name]);
+    } else if (input === "a" && current) props.onToggleAuto(current.name);
     else if (input === "b") props.onRunBackground();
     else if (input === "c" && current) props.onCopyExport(current.name);
     else if (input === "y" && current) props.onCopyName(current.name);
@@ -79,33 +112,55 @@ export function Dashboard(props: Props) {
 
   return (
     <Box flexDirection="column">
-      <Box justifyContent="space-between">
-        <Text bold>🔐 SSOmatic</Text>
-        <Text>{props.daemonRunning ? "daemon ● running" : "daemon ○ off"}</Text>
+      <Box borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+        {/* top padding */}
+        <Box height={1} />
+
+        {/* column headers */}
+        <Box>
+          <Cell text="" width={W_MARKER} dim />
+          <Cell text="PROFILE" width={W_NAME} dim />
+          <Cell text="STATUS" width={W_STATUS} dim />
+          <Cell text="EXPIRES" width={W_EXPIRES} dim />
+          <Cell text="ACCOUNT" width={W_ACCOUNT} dim />
+        </Box>
+
+        {filtering && (
+          <Box>
+            <Text color="cyan">/{filter}</Text>
+          </Box>
+        )}
+
+        {visible.length === 0 && (
+          <Box>
+            <Text dimColor>(no profiles)</Text>
+          </Box>
+        )}
+
+        {visible.map((p, i) => {
+          const hi = i === cursorIndex;
+          const expires = minsLeft(p.expiresAt);
+          const expiresColor = expires === "expired" ? "yellow" : undefined;
+          return (
+            <Box key={p.name}>
+              <Cell text={p.favorite ? AUTO_MARKER : ""} width={W_MARKER} color="cyan" highlight={hi} />
+              <Cell text={p.name} width={W_NAME} highlight={hi} />
+              <Cell text={STATUS_LABEL[p.status]} width={W_STATUS} color={STATUS_COLOR[p.status]} highlight={hi} />
+              <Cell text={expires} width={W_EXPIRES} color={expiresColor} highlight={hi} />
+              <Cell text={p.accountId ?? "—"} width={W_ACCOUNT} highlight={hi} />
+            </Box>
+          );
+        })}
+
+        {/* bottom padding */}
+        <Box height={1} />
       </Box>
-      <Text dimColor>{"─".repeat(48)}</Text>
-      {filtering && <Text>/{filter}</Text>}
-      {visible.length === 0 && <Text dimColor>(no profiles)</Text>}
-      {visible.map((p) => {
-        const isCursor = current?.name === p.name;
-        const isSel = selected.has(p.name);
-        return (
-          <Text key={p.name} color={isCursor ? "cyan" : undefined}>
-            {isCursor ? "▸ " : "  "}
-            {isSel ? "◉ " : "  "}
-            {p.favorite ? "★ " : "  "}
-            {p.name.padEnd(22)}
-            <Text color={STATUS_COLOR[p.status]}>{p.status.padEnd(12)}</Text>
-            {minsLeft(p.expiresAt).padEnd(8)}
-            {p.accountId ?? ""}
-          </Text>
-        );
-      })}
-      <Text dimColor>{"─".repeat(48)}</Text>
-      <Text dimColor>↑↓ move  space sel  ⏎ details  r refresh  b bg</Text>
-      <Text dimColor>
-        f ★  c copy  y name  o console  / filter  s settings  q quit
-      </Text>
+
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>↑↓ move  ⏎ details  r refresh  a auto-refresh  b background</Text>
+        <Text dimColor>c copy  y name  o console  / filter  s settings  q quit</Text>
+        <Text dimColor>{AUTO_MARKER} = auto-refreshed by the daemon</Text>
+      </Box>
     </Box>
   );
 }

@@ -6,7 +6,7 @@
 
 Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
-SSOmatic runs a real per-host background daemon (single instance, Unix socket). It keeps ★ favorite profiles' role credentials fresh in an expiry-aware manner while the SSO token is valid, and sends a desktop notification when an interactive browser login is required — the daemon never opens a browser itself. The TUI attaches to the daemon over the socket for live state; any terminal that runs `ssomatic` while the daemon is up shows the live state.
+SSOmatic runs a real per-host background daemon (single instance, Unix socket). It keeps ⟳ auto-refresh profiles' role credentials fresh in an expiry-aware manner while the SSO token is valid, and sends a desktop notification when an interactive browser login is required — the daemon never opens a browser itself. The TUI attaches to the daemon over the socket for live state; any terminal that runs `ssomatic` while the daemon is up shows the live state.
 
 ## Structure
 
@@ -106,12 +106,10 @@ ssomatic --version
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` / `k` / `j` | Move cursor |
-| `space` | Select / deselect profile |
-| `a` | Select all / deselect all |
 | `⏎` | Open details |
-| `r` | Refresh selected (or current) profile(s) |
+| `r` | Refresh the current profile |
+| `a` | Toggle ⟳ auto-refresh (pin for the daemon) |
 | `b` | Run daemon in background |
-| `f` | Toggle ★ favorite |
 | `c` | Copy export (`AWS_*` env vars) |
 | `y` | Copy profile name |
 | `o` | Open AWS console |

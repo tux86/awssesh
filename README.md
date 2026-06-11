@@ -13,7 +13,7 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 ## Why SSOmatic
 
 - **k9s-style list-first dashboard** — all your SSO profiles at a glance with live expiry countdowns; navigate with j/k or arrow keys, no menus to dig through.
-- **Background daemon that keeps ★ favorites fresh** — expiry-aware refresh means credentials are always ready before they expire, with zero fixed-interval polling waste.
+- **Background daemon that keeps ⟳ auto-refresh profiles fresh** — pin a profile for auto-refresh and expiry-aware refresh keeps its credentials ready before they expire, with zero fixed-interval polling waste.
 - **Notify-on-login, never surprise you** — when an interactive SSO login is required the daemon sends a desktop notification; it never opens a browser on its own.
 - **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
 - **Attach from any terminal** — run `ssomatic` once to open the TUI; press `b` to push it to the background; re-run `ssomatic` from any terminal window to reconnect to the live daemon state.
@@ -54,7 +54,7 @@ ssomatic
 ssomatic
 ```
 
-The daemon keeps your starred profiles' credentials fresh in the background. When a browser login is required, you get a desktop notification and can log in from the TUI or with `ssomatic refresh <profile>`.
+The daemon keeps your ⟳ auto-refresh profiles' credentials fresh in the background. When a browser login is required, you get a desktop notification and can log in from the TUI or with `ssomatic refresh <profile>`.
 
 ---
 
@@ -83,12 +83,10 @@ eval $(ssomatic export prod)
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` or `j` / `k` | Move cursor |
-| `Space` | Toggle profile selection |
-| `a` | Select all / deselect all |
 | `Enter` | Open profile details |
-| `r` | Refresh selected (or current) profile(s) |
+| `r` | Refresh the current profile |
+| `a` | Toggle ⟳ auto-refresh (pin for the daemon) |
 | `b` | Run daemon in background, detach TUI |
-| `f` | Toggle ★ favorite |
 | `c` | Copy `export AWS_*` to clipboard |
 | `y` | Copy profile name to clipboard |
 | `o` | Open AWS console in browser |

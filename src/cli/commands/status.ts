@@ -13,8 +13,8 @@ export function formatStatusTable(rows: ProfileState[], now: Date): string {
   const statusW = Math.max(6, ...rows.map((r) => r.status.length));
   return rows
     .map((r) => {
-      const star = r.favorite ? "★ " : "  ";
-      return `${star}${r.name.padEnd(nameW)}  ${r.status.padEnd(statusW)}  ${minsLeft(r.expiresAt, now)}`;
+      const marker = r.favorite ? "⟳ " : "  ";
+      return `${marker}${r.name.padEnd(nameW)}  ${r.status.padEnd(statusW)}  ${minsLeft(r.expiresAt, now)}`;
     })
     .join("\n");
 }
