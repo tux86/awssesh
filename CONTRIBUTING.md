@@ -51,11 +51,13 @@ type(scope): description
 
 **Scopes:** `cli`, `aws`, `deps`, `ci`
 
-Commits are validated by [commitlint](https://commitlint.js.org/) via a Git hook.
+A breaking change is marked with `!` after the type/scope (e.g. `feat!:`) or a `BREAKING CHANGE:` footer — this bumps the major version.
+
+Commits are validated by [commitlint](https://commitlint.js.org/) via a Git hook. Pull request titles are also validated, because **PRs are squash-merged** and the PR title becomes the commit message that drives the release. Keep your PR title a valid Conventional Commit.
 
 ## Releases
 
-Releases are fully automated via [semantic-release](https://semantic-release.gitbook.io/). When commits land on `main`, the CI pipeline determines the version bump from commit types (`feat` → minor, `fix` → patch), creates a GitHub release, and publishes the package to npm. No manual steps needed.
+Releases are automated via [release-please](https://github.com/googleapis/release-please). When conventional commits land on `main`, release-please opens (and keeps updating) a **Release PR** that bumps the version in `package.json`, updates `CHANGELOG.md`, and shows the pending release notes. Merging that Release PR tags the release, creates the GitHub release, and publishes the package to **npm**. No manual version edits needed.
 
 ## Pull Request Process
 

@@ -24,7 +24,7 @@ ssomatic/
 ├── dist/                      # Build output
 │   └── cli.js                 # Node CLI bundle (npm bin)
 ├── docs/screenshots/          # Demo GIFs for README
-├── .releaserc.json            # semantic-release config
+├── release-please-config.json # release-please config
 ├── package.json
 └── tsconfig.json              # TypeScript config
 ```
@@ -38,7 +38,7 @@ ssomatic/
 | React | Component framework |
 | Ink | React renderer for CLI |
 | ESLint | Linting (flat config) |
-| semantic-release | Automated versioning & releases |
+| release-please | Automated versioning & releases |
 
 ## Commands
 
@@ -65,14 +65,17 @@ bun test              # Run unit tests
 ```bash
 feat(cli): add profile filtering      # New feature → minor bump
 fix(aws): handle empty clipboard       # Bug fix → patch bump
+feat!: drop legacy config format       # Breaking change → major bump
 docs: update README                    # No release
 build(deps): upgrade aws-sdk           # No release
 ```
 
-**Allowed scopes:** `cli`, `aws`, `deps`, `ci`
+**Allowed scopes:** `cli`, `aws`, `deps`, `ci`. PR titles are linted too (PRs are squash-merged, so the title becomes the release-driving commit).
 
 ### Releases
 
-Fully automated via **semantic-release**. Push to `main` with conventional commits → CI passes → version bumped, CHANGELOG.md updated, GitHub release created, and the package published to npm. No manual steps.
+Automated via **release-please**. Conventional commits on `main` → release-please maintains a **Release PR** (version bump in `package.json` + `CHANGELOG.md` + pending notes). Merging that Release PR tags the release, creates the GitHub release, and publishes to **npm**.
 
-**Requires:** `RELEASE_TOKEN` secret in GitHub repo settings (PAT with `contents: write` scope) and an `NPM_TOKEN` secret (npm automation token with publish scope).
+- Config: `release-please-config.json` (release-type `node`); current version tracked in `.release-please-manifest.json`.
+- **Requires:** `NPM_TOKEN` secret (npm automation token with publish scope). Uses the built-in `GITHUB_TOKEN` otherwise — no PAT.
+- Repo setting: **Allow GitHub Actions to create and approve pull requests** must be enabled (Settings → Actions → General).
