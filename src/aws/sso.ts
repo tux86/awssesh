@@ -12,6 +12,7 @@ import {
 import { SSOClient, GetRoleCredentialsCommand } from "@aws-sdk/client-sso";
 import { parse as parseIni, stringify as stringifyIni } from "ini";
 import { readFile, writeFile, mkdir, chmod } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
@@ -372,6 +373,24 @@ export async function refreshProfile(
 
   await writeCredentials(profile.name, credentials);
   return { success: true, expiresAt: credentials.expiration };
+}
+
+export function readProfileCredentials(
+  profileName: string
+): { accessKeyId: string; secretAccessKey: string; sessionToken: string } | null {
+  try {
+    const content = readFileSync(CREDENTIALS_PATH, "utf8");
+    const parsed = parseIni(content) as ParsedConfig;
+    const section = parsed[profileName];
+    if (!section) return null;
+    const accessKeyId = section.aws_access_key_id;
+    const secretAccessKey = section.aws_secret_access_key;
+    const sessionToken = section.aws_session_token;
+    if (!accessKeyId || !secretAccessKey || !sessionToken) return null;
+    return { accessKeyId, secretAccessKey, sessionToken };
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
