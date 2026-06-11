@@ -1,14 +1,15 @@
 {
   "name": "ssomatic",
   "version": "1.3.1",
-  "description": "Interactive AWS SSO credential manager for your terminal — auto-discover, refresh, and manage SSO credentials. Built with Bun, React, and Ink.",
+  "description": "AWS SSO credential manager — a fast terminal dashboard that keeps your pinned profiles' credentials fresh (expiry-aware), with one-keystroke copy, console open, and env export.",
   "keywords": [
     "aws",
     "sso",
+    "aws-sso",
     "cli",
     "tui",
     "credentials",
-    "aws-sso",
+    "terminal",
     "ink",
     "bun"
   ],
@@ -41,27 +42,27 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@aws-sdk/client-sso": "^3.958.0",
-    "@aws-sdk/client-sso-oidc": "^3.958.0",
-    "@aws-sdk/client-sts": "^3.700.0",
-    "ini": "^5.0.0",
-    "ink": "^6.0.0",
+    "@aws-sdk/client-sso": "^3.1066.0",
+    "@aws-sdk/client-sso-oidc": "^3.1066.0",
+    "@aws-sdk/client-sts": "^3.1066.0",
+    "ini": "^7.0.0",
+    "ink": "^7.0.5",
     "ink-spinner": "^5.0.0",
-    "react": "^19.0.0"
+    "react": "^19.2.7"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.2.0",
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^10.0.1",
     "@types/ini": "^4.1.1",
-    "@types/react": "^19.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
+    "@types/react": "^19.2.17",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
     "bun-types": "latest",
-    "eslint": "^9.0.0",
-    "eslint-plugin-react": "^7.37.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
-    "typescript": "^5.6.0"
+    "typescript": "^6.0.3"
   }
 }
