@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-**SSOmatic** — Interactive AWS SSO credential manager with CLI and web UI, built with Bun + React + Ink.
+**SSOmatic** — Interactive AWS SSO credential manager — a terminal CLI built with Bun + React + Ink.
 
-Single entry point — the CLI is the main app. Press `w` to toggle a built-in web server. Settings (favorites, notifications, web server state, port) are persisted across sessions.
+Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
 ## Structure
 
@@ -13,31 +13,20 @@ ssomatic/
 ├── src/
 │   ├── aws/                   # Shared AWS logic (UI-agnostic)
 │   │   ├── sso.ts             # SSO profiles, tokens, refresh, settings
+│   │   ├── sso.test.ts        # Unit tests for sso.ts
 │   │   ├── aws.ts             # STS identity utilities
-│   │   └── utils.ts           # Clipboard, JSON formatting
-│   ├── cli/                   # Terminal UI (React/Ink)
-│   │   ├── index.tsx          # Entry point + web server toggle
-│   │   ├── components/        # Ink UI components
-│   │   └── hooks/             # Ink hooks (useIdentity, useCopy)
-│   └── web/                   # Web UI
-│       ├── server.ts          # Bun HTTP server + RPC bridge (start/stop API)
-│       └── client/            # Vite SPA (React/Tailwind)
-│           ├── index.html
-│           ├── main.tsx
-│           ├── App.tsx
-│           ├── components/
-│           ├── hooks/
-│           └── lib/api.ts     # RPC client
+│   │   ├── utils.ts           # Clipboard, JSON formatting
+│   │   └── utils.test.ts      # Unit tests for utils.ts
+│   └── cli/                   # Terminal UI (React/Ink)
+│       ├── index.tsx          # Entry point
+│       ├── components/        # Ink UI components
+│       └── hooks/             # Ink hooks (useIdentity, useCopy)
 ├── dist/                      # Build output
-│   └── ssomatic               # Compiled CLI binary (web assets embedded)
+│   └── cli.js                 # Node CLI bundle (npm bin)
 ├── docs/screenshots/          # Demo GIFs for README
 ├── .releaserc.json            # semantic-release config
 ├── package.json
-├── tsconfig.json              # Server/CLI TypeScript config
-├── tsconfig.web.json          # Web client TypeScript config (DOM libs)
-├── vite.config.ts
-├── tailwind.config.js
-└── postcss.config.js
+└── tsconfig.json              # TypeScript config
 ```
 
 ## Tech Stack
@@ -48,8 +37,6 @@ ssomatic/
 | TypeScript | Language |
 | React | Component framework |
 | Ink | React renderer for CLI |
-| Vite | Web UI dev server & bundler |
-| Tailwind CSS | Web UI styling |
 | ESLint | Linting (flat config) |
 | semantic-release | Automated versioning & releases |
 
@@ -59,15 +46,15 @@ ssomatic/
 bun install           # Install dependencies
 bun run start         # Run CLI
 bun run dev           # Run CLI with --watch (auto-restart on changes)
-bun run build         # Build web assets + CLI binary
+bun run build         # Build the Node CLI bundle (`dist/cli.js`)
 bun run lint          # Run ESLint
+bun test              # Run unit tests
 ```
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| `w` | Toggle web server on/off (persisted) |
 | `Escape` | Back |
 | `q` | Quit |
 
@@ -82,10 +69,10 @@ docs: update README                    # No release
 build(deps): upgrade aws-sdk           # No release
 ```
 
-**Allowed scopes:** `cli`, `web`, `aws`, `deps`, `ci`
+**Allowed scopes:** `cli`, `aws`, `deps`, `ci`
 
 ### Releases
 
-Fully automated via **semantic-release**. Push to `main` with conventional commits → CI passes → version bumped, CHANGELOG.md updated, GitHub release created with binary attached. No manual steps.
+Fully automated via **semantic-release**. Push to `main` with conventional commits → CI passes → version bumped, CHANGELOG.md updated, GitHub release created, and the package published to npm. No manual steps.
 
-**Requires:** `RELEASE_TOKEN` secret in GitHub repo settings (PAT with `contents: write` scope).
+**Requires:** `RELEASE_TOKEN` secret in GitHub repo settings (PAT with `contents: write` scope) and an `NPM_TOKEN` secret (npm automation token with publish scope).

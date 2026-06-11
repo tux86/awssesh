@@ -1,7 +1,8 @@
 {
   "name": "ssomatic",
   "version": "1.2.3",
-  "description": "SSOmatic — Auto-discover, refresh, and manage your AWS SSO credentials from the terminal or browser. Built with Bun, React, and TypeScript.",
+  "description": "Interactive AWS SSO credential manager for your terminal — auto-discover, refresh, and manage SSO credentials. Built with Bun, React, and Ink.",
+  "keywords": ["aws", "sso", "cli", "tui", "credentials", "aws-sso", "ink", "bun"],
   "type": "module",
   "license": "MIT",
   "bin": { "ssomatic": "dist/cli.js" },
