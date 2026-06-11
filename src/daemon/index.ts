@@ -21,6 +21,7 @@ function logPath(): string {
 }
 
 const notified = new Set<string>();
+const credExpiry = new Map<string, Date>();
 
 function maybeNotify(enabled: boolean, profile: string): void {
   if (!enabled || notified.has(profile)) return;
@@ -32,10 +33,11 @@ function maybeNotify(enabled: boolean, profile: string): void {
  * Build current ProfileState[] from disk.
  * For each favorite, decide + perform a silent refresh when due.
  *
- * NOTE: checkTokenStatus() only exposes the SSO token expiry, not role-credential
- * expiry (which is not cached on disk). We therefore pass credsExpireAt=null to
- * the scheduler, which causes it to always return "refresh" for profiles with a
- * valid SSO token — the intended behaviour so the daemon keeps role creds fresh.
+ * Role-credential expiry is tracked in `credExpiry` (populated after each
+ * successful refresh). On daemon start the map is empty, so every favorite
+ * refreshes once; afterward `decideAction` returns "wait" until within
+ * `refreshLeadMinutes` of the role-cred expiry, making computeState a cheap
+ * read on normal snapshots/subscribes.
  */
 async function computeState(): Promise<ProfileState[]> {
   const settings = loadSettings();
@@ -49,9 +51,8 @@ async function computeState(): Promise<ProfileState[]> {
     const cachedToken = await findCachedToken(p);
     const ssoTokenValid = cachedToken !== null && cachedToken.expiresAt > now;
 
-    // Role-credential expiry is not persisted on disk; pass null so the scheduler
-    // always triggers a refresh while the SSO token is valid.
-    const credsExpireAt: Date | null = null;
+    // Use tracked role-cred expiry when available; null triggers a refresh.
+    const credsExpireAt: Date | null = credExpiry.get(p.name) ?? null;
 
     const favorite = favorites.has(p.name);
     let status: ProfileStatusKind = ssoTokenValid ? "valid" : "needs-login";
@@ -64,23 +65,33 @@ async function computeState(): Promise<ProfileState[]> {
         if (r.success) {
           notified.delete(p.name);
           status = "valid";
+          if (r.expiresAt) credExpiry.set(p.name, r.expiresAt);
         } else if (r.needsLogin) {
           status = "needs-login";
+          credExpiry.delete(p.name);
           maybeNotify(settings.notifications, p.name);
         } else {
           status = "error";
         }
       } else if (action === "needs-login") {
         status = "needs-login";
+        credExpiry.delete(p.name);
         maybeNotify(settings.notifications, p.name);
       }
       // action === "wait" → keep status derived from ssoTokenValid above
     }
 
+    // Prefer role-cred expiry for the expiresAt field when known; fall back to
+    // the cached SSO-token expiry.
+    const trackedExpiry = credExpiry.get(p.name);
     states.push({
       name: p.name,
       status,
-      expiresAt: cachedToken ? cachedToken.expiresAt.toISOString() : null,
+      expiresAt: trackedExpiry
+        ? trackedExpiry.toISOString()
+        : cachedToken
+          ? cachedToken.expiresAt.toISOString()
+          : null,
       favorite,
       accountId: p.ssoAccountId,
     });
@@ -98,7 +109,13 @@ export async function runDaemon(): Promise<void> {
     refreshProfile: async (name) => {
       const profiles = await discoverProfiles();
       const p = profiles.find((x) => x.name === name);
-      if (p) await coreRefresh(p);
+      if (!p) return;
+      const r = await coreRefresh(p);
+      if (r.success && r.expiresAt) {
+        credExpiry.set(name, r.expiresAt);
+      } else if (r.needsLogin) {
+        credExpiry.delete(name);
+      }
     },
     setFavorite: (name, value) => {
       const s = loadSettings();

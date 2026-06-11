@@ -359,7 +359,7 @@ export async function performSSOLoginFlow(
 
 export async function refreshProfile(
   profile: SSOProfile
-): Promise<{ success: boolean; error?: string; needsLogin?: boolean }> {
+): Promise<{ success: boolean; error?: string; needsLogin?: boolean; expiresAt?: Date }> {
   const cachedToken = await findCachedToken(profile);
   if (!cachedToken || cachedToken.expiresAt <= new Date()) {
     return { success: false, needsLogin: true };
@@ -371,7 +371,7 @@ export async function refreshProfile(
   }
 
   await writeCredentials(profile.name, credentials);
-  return { success: true };
+  return { success: true, expiresAt: credentials.expiration };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
