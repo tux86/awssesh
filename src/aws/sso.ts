@@ -54,13 +54,6 @@ export interface DeviceAuthInfo {
   interval: number;
 }
 
-export interface AppSettings {
-  notifications: boolean;
-  defaultInterval: number;
-  favoriteProfiles: string[];
-  lastRefresh?: string;
-}
-
 export interface TokenInfo {
   accessToken: string;
   expiresAt: Date;
@@ -83,20 +76,6 @@ export const AWS_DIR = `${HOME}/.aws`;
 export const CONFIG_PATH = `${AWS_DIR}/config`;
 export const CREDENTIALS_PATH = `${AWS_DIR}/credentials`;
 export const SSO_CACHE_DIR = `${AWS_DIR}/sso/cache`;
-export const SETTINGS_PATH = `${AWS_DIR}/credentials-manager.json`;
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  notifications: true,
-  defaultInterval: 30,
-  favoriteProfiles: [],
-};
-
-export const REFRESH_INTERVALS = [
-  { value: 15, label: "15 minutes" },
-  { value: 30, label: "30 minutes", hint: "recommended" },
-  { value: 60, label: "1 hour" },
-  { value: 120, label: "2 hours" },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File Utilities
@@ -122,20 +101,6 @@ export async function writeCredentials(profileName: string, credentials: AWSCred
 
   await mkdir(AWS_DIR, { recursive: true });
   await writeFile(CREDENTIALS_PATH, stringifyIni(existing));
-}
-
-export async function loadSettings(): Promise<AppSettings> {
-  try {
-    const content = await readFile(SETTINGS_PATH, "utf8");
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(content) };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  await mkdir(AWS_DIR, { recursive: true });
-  await writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

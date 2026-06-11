@@ -22,22 +22,31 @@ import {
   type SSOProfile,
   type ProfileStatus,
   type DeviceAuthInfo,
-  type AppSettings,
-  DEFAULT_SETTINGS,
-  REFRESH_INTERVALS,
   discoverProfiles,
   checkAllProfiles,
   startDeviceAuthorization,
   performSSOLoginFlow,
   refreshProfile,
   sendNotification,
-  loadSettings,
-  saveSettings,
   openBrowser,
   formatExpiry,
   getStatusColor,
   sortByFavorites,
 } from "../aws/sso.js";
+import {
+  type AppSettings,
+  DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
+} from "../aws/settings.js";
+
+// TODO(Task 12/13): remove interval UI; kept as shim until dead code cleanup
+const REFRESH_INTERVALS = [
+  { value: 15, label: "15 minutes" },
+  { value: 30, label: "30 minutes", hint: "recommended" },
+  { value: 60, label: "1 hour" },
+  { value: 120, label: "2 hours" },
+];
 import { VERSION, checkForUpdate } from "../version.js";
 
 type ViewState =
@@ -103,13 +112,13 @@ function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    loadSettings().then(setSettings);
+    setSettings(loadSettings());
   }, []);
 
-  const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
+  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
-    await saveSettings(updated);
+    saveSettings(updated);
   }, [settings]);
 
   return { settings, updateSettings };
@@ -547,7 +556,7 @@ function SSOmatic() {
     },
     {
       id: "interval",
-      label: `Default refresh interval: ${settings.defaultInterval} minutes`,
+      label: `Default refresh interval: ${settings.refreshLeadMinutes} minutes before expiry`,
       value: "interval",
     },
     {
@@ -607,11 +616,11 @@ function SSOmatic() {
     }
   };
 
-  const handleSettingsSelect = async (item: ListItemData) => {
+  const handleSettingsSelect = (item: ListItemData) => {
     const action = item.value as string;
     switch (action) {
       case "notifications":
-        await updateSettings({ notifications: !settings.notifications });
+        updateSettings({ notifications: !settings.notifications });
         break;
       case "interval":
         setView("settings-interval");
@@ -625,8 +634,9 @@ function SSOmatic() {
     }
   };
 
-  const handleIntervalSelect = async (item: ListItemData) => {
-    await updateSettings({ defaultInterval: item.value as number });
+  // TODO(Task 12/13): defaultInterval shim — remove with interval UI cleanup
+  const handleIntervalSelect = (item: ListItemData) => {
+    void item; // interval value captured by daemonInterval state; settings field removed
     setView("settings");
   };
 
@@ -635,8 +645,8 @@ function SSOmatic() {
     setView("daemon-running");
   };
 
-  const handleFavoritesSubmit = async (selected: MultiSelectItemData[]) => {
-    await updateSettings({ favoriteProfiles: selected.map((s) => s.id) });
+  const handleFavoritesSubmit = (selected: MultiSelectItemData[]) => {
+    updateSettings({ favoriteProfiles: selected.map((s) => s.id) });
     setView("settings");
   };
 

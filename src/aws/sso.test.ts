@@ -64,15 +64,11 @@ test("discoverProfiles parses sso-session and inline profiles", async () => {
 });
 
 test("saveSettings / loadSettings round-trip", async () => {
-  await sso.saveSettings({
-    ...sso.DEFAULT_SETTINGS,
-    notifications: false,
-    defaultInterval: 60,
-    favoriteProfiles: ["dev"],
-  });
-  const loaded = await sso.loadSettings();
+  const { saveSettings, loadSettings } = await import("./settings");
+  saveSettings({ notifications: false, refreshLeadMinutes: 60, autoStartDaemon: false, favoriteProfiles: ["dev"] });
+  const loaded = loadSettings();
   expect(loaded.notifications).toBe(false);
-  expect(loaded.defaultInterval).toBe(60);
+  expect(loaded.refreshLeadMinutes).toBe(60);
   expect(loaded.favoriteProfiles).toEqual(["dev"]);
 });
 
