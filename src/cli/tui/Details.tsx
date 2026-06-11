@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
-import type { ProfileState } from "../../daemon/protocol.js";
+import type { ProfileState } from "../../aws/profileState.js";
 import { Key } from "../components/KeyHint.js";
 
 interface Props {

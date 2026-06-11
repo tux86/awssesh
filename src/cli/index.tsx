@@ -16,8 +16,7 @@ import { useCopy } from "./hooks/index.js";
 import { Dashboard } from "./tui/Dashboard.js";
 import { Details } from "./tui/Details.js";
 import { Settings } from "./tui/Settings.js";
-import { useDaemon } from "./tui/useDaemon.js";
-import { buildLocalProfileStates } from "../aws/profileState.js";
+import { useAutoRefresh } from "./tui/useAutoRefresh.js";
 import {
   type SSOProfile,
   type DeviceAuthInfo,
@@ -32,7 +31,6 @@ import {
 import { buildExportBlock, getConsoleSigninUrl } from "../aws/console.js";
 import { copyToClipboard } from "../aws/utils.js";
 import { loadSettings, saveSettings, type AppSettings } from "../aws/settings.js";
-import type { ProfileState } from "../daemon/protocol.js";
 import { VERSION, checkForUpdate } from "../version.js";
 
 type ViewState = "dashboard" | "details" | "settings";
@@ -180,43 +178,38 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SSOmaticProps {
-  startDaemon?: boolean;
-}
-
-function SSOmatic({ startDaemon = false }: SSOmaticProps) {
+function SSOmatic() {
   const { exit } = useApp();
 
   const [view, setView] = useState<ViewState>("dashboard");
   const [detailName, setDetailName] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>(loadSettings());
-  const [localStates, setLocalStates] = useState<ProfileState[]>([]);
   const [ssoProfiles, setSSOProfiles] = useState<SSOProfile[]>([]);
   const [seeding, setSeeding] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingLogin, setPendingLogin] = useState<SSOProfile | null>(null);
 
-  const daemon = useDaemon(localStates);
-  const startBackgroundOnceRef = React.useRef(false);
-
-  // Re-read local disk state (after refresh / favorite changes when no daemon).
-  const reloadLocal = useCallback(async () => {
-    const states = await buildLocalProfileStates();
-    setLocalStates(states);
+  // Notify-once on auto-refresh login expiry, respecting the notifications setting.
+  const settingsRef = React.useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const onNeedsLogin = useCallback((name: string) => {
+    if (settingsRef.current.notifications) {
+      void sendNotification("SSO Login Required", `Token expired for profile '${name}'`);
+    }
   }, []);
 
-  // Seed initial local state + discovered profiles on mount.
+  const { profiles, reload, refreshOne, setAuto } = useAutoRefresh(settings, onNeedsLogin);
+
+  // Seed discovered SSO profiles on mount (the hook seeds the profile states).
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [states, profiles] = await Promise.all([
-        buildLocalProfileStates(),
-        discoverProfiles(),
-      ]);
+      const discovered = await discoverProfiles();
       if (cancelled) return;
-      setLocalStates(states);
-      setSSOProfiles(profiles);
+      setSSOProfiles(discovered);
       setSeeding(false);
     })();
     return () => {
@@ -229,30 +222,21 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
     checkForUpdate().then(setUpdateAvailable);
   }, []);
 
-  // Optionally auto-start the background daemon (once).
-  useEffect(() => {
-    if (startDaemon && !startBackgroundOnceRef.current) {
-      startBackgroundOnceRef.current = true;
-      void daemon.startBackground();
-    }
-  }, [startDaemon, daemon]);
-
   const findProfile = useCallback(
     (name: string): SSOProfile | undefined => ssoProfiles.find((p) => p.name === name),
     [ssoProfiles],
   );
 
-  // The profiles displayed in the dashboard: live daemon state when running,
-  // local disk state otherwise.
-  const displayProfiles = daemon.running ? daemon.profiles : localStates;
+  // The profiles displayed in the dashboard come from the in-process hook.
+  const displayProfiles = profiles;
 
-  // ── Interactive login (local, no daemon) ──────────────────────────────────
+  // ── Interactive login ──────────────────────────────────────────────────────
   const handleLoginComplete = useCallback(
     (_profile: SSOProfile, _result: { success: boolean; error?: string }) => {
       setPendingLogin(null);
-      void reloadLocal();
+      void reload();
     },
-    [reloadLocal],
+    [reload],
   );
 
   const { deviceAuth, authorizing, authError, copied, handleEnter, handleCopy } = useDeviceAuth({
@@ -278,29 +262,24 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   // ── Dashboard handlers ────────────────────────────────────────────────────
   const handleRefresh = useCallback(
     async (names: string[]) => {
-      if (daemon.running) {
-        // Single name → targeted refresh; multiple/all → refresh everything.
-        if (names.length === 1) await daemon.refresh(names[0]);
-        else await daemon.refresh();
+      const name = names[0];
+      if (!name) return;
+      setFeedback(`Refreshing ${name}…`);
+      const result = await refreshOne(name);
+      if (result.needsLogin) {
+        const profile = findProfile(name);
+        if (profile) {
+          setFeedback(`${name} needs login`);
+          setPendingLogin(profile); // login completion will reload state
+          return;
+        }
+        setFeedback(`${name} needs login`);
         return;
       }
-      // Local refresh: process each profile; the first that needs login triggers
-      // the interactive device-auth flow.
-      for (const name of names) {
-        const profile = findProfile(name);
-        if (!profile) continue;
-        const result = await refreshProfile(profile);
-        if (result.needsLogin) {
-          if (settings.notifications) {
-            await sendNotification("SSO Login Required", `Token expired for profile '${name}'`);
-          }
-          setPendingLogin(profile);
-          return; // login completion will reload local state
-        }
-      }
-      await reloadLocal();
+      if (result.ok) setFeedback(`Refreshed ${name}`);
+      else setFeedback(`${name}: ${result.error ?? "refresh failed"}`);
     },
-    [daemon, findProfile, settings.notifications, reloadLocal],
+    [refreshOne, findProfile],
   );
 
   const handleToggleAuto = useCallback(
@@ -311,16 +290,11 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
         : [...settings.favoriteProfiles, name];
       const next = { ...settings, favoriteProfiles };
       setSettings(next);
-      saveSettings(next);
-      void daemon.setFavorite(name, !isFav); // no-op if daemon down
-      void reloadLocal(); // update the ⟳ marker immediately when no daemon
+      setAuto(name, !isFav); // persists settings + reloads the ⟳ marker
+      setFeedback(`⟳ ${isFav ? "off" : "on"} for ${name}`);
     },
-    [settings, daemon, reloadLocal],
+    [settings, setAuto],
   );
-
-  const handleRunBackground = useCallback(() => {
-    void daemon.startBackground();
-  }, [daemon]);
 
   const handleCopyExport = useCallback(
     async (name: string) => {
@@ -408,7 +382,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   );
 
   // Loading / seeding state.
-  if (seeding && localStates.length === 0) {
+  if (seeding && profiles.length === 0) {
     return (
       <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <Spinner label="Discovering SSO profiles..." />
@@ -417,7 +391,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   }
 
   // No profiles found.
-  if (!seeding && ssoProfiles.length === 0 && localStates.length === 0) {
+  if (!seeding && ssoProfiles.length === 0 && profiles.length === 0) {
     return (
       <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <StatusMessage type="error">No SSO profiles found in ~/.aws/config</StatusMessage>
@@ -442,7 +416,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
 
   if (view === "settings") {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
+      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
         <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} />
       </App>
     );
@@ -453,7 +427,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
     if (profile) {
       const sso = findProfile(detailName);
       return (
-        <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
+        <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
           <Details
             profile={profile}
             arn={sso?.ssoRoleName}
@@ -471,16 +445,13 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
       title={`SSOmatic v${VERSION}`}
       icon="🔐"
       color="cyan"
-      daemonRunning={daemon.running}
       statusItems={statusItems}
       onQuit={() => exit()}
     >
       <Dashboard
         profiles={displayProfiles}
-        daemonRunning={daemon.running}
         onRefresh={(names) => void handleRefresh(names)}
         onToggleAuto={handleToggleAuto}
-        onRunBackground={handleRunBackground}
         onOpenDetails={handleOpenDetails}
         onOpenConsole={(name) => void handleOpenConsole(name)}
         onCopyExport={(name) => void handleCopyExport(name)}
@@ -500,7 +471,6 @@ const HELP = `ssomatic — interactive AWS SSO credential manager
 
 Usage:
   ssomatic                 launch the interactive TUI
-  ssomatic --daemon        launch the TUI and start the background daemon
   ssomatic status          print profile statuses and exit
   ssomatic refresh [name]  refresh a profile (or all favorites) now
   ssomatic export <name>   print export AWS_* lines for eval $(...)
@@ -508,8 +478,12 @@ Usage:
   ssomatic --version
 `;
 
-function launchTui(startDaemon: boolean): void {
-  renderApp(<SSOmatic startDaemon={startDaemon} />);
+async function launchTui(): Promise<void> {
+  const instance = renderApp(<SSOmatic />);
+  // Always terminate promptly on quit; the in-process auto-refresh interval is
+  // cleared on unmount, so there are no lingering handles.
+  await instance.waitUntilExit();
+  process.exit(0);
 }
 
 async function main(): Promise<void> {
@@ -541,7 +515,7 @@ async function main(): Promise<void> {
       process.exit(1);
       return;
     case "tui":
-      launchTui(parsed.daemon);
+      await launchTui();
       return;
   }
 }

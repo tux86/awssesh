@@ -1,6 +1,16 @@
-import type { ProfileState } from "../daemon/protocol.js";
 import { discoverProfiles, findCachedToken } from "./sso.js";
 import { loadSettings } from "./settings.js";
+
+export type ProfileStatusKind = "valid" | "expired" | "needs-login" | "error" | "refreshing";
+
+export interface ProfileState {
+  name: string;
+  status: ProfileStatusKind;
+  expiresAt: string | null; // ISO string or null
+  favorite: boolean;
+  accountId?: string;
+  error?: string;
+}
 
 /**
  * Build the list of profile states from local disk (config + SSO token cache).

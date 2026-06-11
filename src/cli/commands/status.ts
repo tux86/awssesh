@@ -1,5 +1,5 @@
 import { request, isDaemonAlive } from "../../daemon/client";
-import type { ProfileState } from "../../daemon/protocol";
+import type { ProfileState } from "../../aws/profileState";
 import { buildLocalProfileStates } from "../../aws/profileState";
 
 function minsLeft(expiresAt: string | null, now: Date): string {

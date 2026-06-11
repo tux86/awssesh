@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { formatStatusTable } from "./status";
-import type { ProfileState } from "../../daemon/protocol";
+import type { ProfileState } from "../../aws/profileState";
 
 test("formatStatusTable renders aligned rows", () => {
   const rows: ProfileState[] = [

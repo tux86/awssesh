@@ -8,8 +8,6 @@ export interface AppProps {
   color?: string;
   actions?: ActionItem[];
   statusItems?: React.ReactNode[];
-  /** When set, shows a colored daemon indicator right-aligned on the title row. */
-  daemonRunning?: boolean;
   /** Mount a global `q` → onQuit handler. Use ONLY on blocking screens that own no input. */
   captureQuit?: boolean;
   children: React.ReactNode;
@@ -25,13 +23,11 @@ export function App({
   color = "cyan",
   actions,
   statusItems,
-  daemonRunning,
   captureQuit = false,
   children,
   onQuit,
 }: AppProps) {
   const hasStatusItems = !!statusItems && statusItems.length > 0;
-  const showDaemon = daemonRunning !== undefined;
 
   // Global quit handler for blocking screens (seeding / no-profiles) that
   // otherwise have no useInput of their own. Ctrl-C remains native.
@@ -49,12 +45,6 @@ export function App({
         <Text color={color} bold>
           {icon} {title}
         </Text>
-        {showDaemon &&
-          (daemonRunning ? (
-            <Text color="green">● running</Text>
-          ) : (
-            <Text dimColor>○ off</Text>
-          ))}
       </Box>
 
       {/* Content */}

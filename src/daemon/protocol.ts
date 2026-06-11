@@ -1,13 +1,8 @@
-export type ProfileStatusKind = "valid" | "expired" | "needs-login" | "error" | "refreshing";
-
-export interface ProfileState {
-  name: string;
-  status: ProfileStatusKind;
-  expiresAt: string | null; // ISO string or null
-  favorite: boolean;
-  accountId?: string;
-  error?: string;
-}
+// ProfileState / ProfileStatusKind now live in ../aws/profileState (co-located
+// with buildLocalProfileStates). Re-exported here so the daemon backend wire
+// types keep working until the daemon is removed.
+import type { ProfileState } from "../aws/profileState.js";
+export type { ProfileState, ProfileStatusKind } from "../aws/profileState.js";
 
 export interface DaemonInfo {
   pid: number;

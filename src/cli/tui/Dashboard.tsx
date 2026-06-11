@@ -1,14 +1,12 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import type { ProfileState, ProfileStatusKind } from "../../daemon/protocol.js";
+import type { ProfileState, ProfileStatusKind } from "../../aws/profileState.js";
 import { Key } from "../components/KeyHint.js";
 
 interface Props {
   profiles: ProfileState[];
-  daemonRunning: boolean;
   onRefresh: (names: string[]) => void;
   onToggleAuto: (name: string) => void;
-  onRunBackground: () => void;
   onOpenDetails: (name: string) => void;
   onOpenConsole: (name: string) => void;
   onCopyExport: (name: string) => void;
@@ -101,7 +99,6 @@ export function Dashboard(props: Props) {
     else if (input === "r") {
       if (current) props.onRefresh([current.name]);
     } else if (input === "a" && current) props.onToggleAuto(current.name);
-    else if (input === "b") props.onRunBackground();
     else if (input === "c" && current) props.onCopyExport(current.name);
     else if (input === "y" && current) props.onCopyName(current.name);
     else if (input === "o" && current) props.onOpenConsole(current.name);
@@ -163,7 +160,6 @@ export function Dashboard(props: Props) {
           <Key k="⏎">details</Key>
           <Key k="r">refresh</Key>
           <Key k="a">{AUTO_MARKER} auto-refresh</Key>
-          <Key k="b">background</Key>
         </Box>
         <Box>
           <Key k="c">copy</Key>
@@ -173,7 +169,7 @@ export function Dashboard(props: Props) {
           <Key k="s">settings</Key>
           <Key k="q">quit</Key>
         </Box>
-        <Text dimColor>{AUTO_MARKER} = auto-refreshed by the daemon</Text>
+        <Text dimColor>{AUTO_MARKER} = auto-refreshed while open</Text>
       </Box>
     </Box>
   );
