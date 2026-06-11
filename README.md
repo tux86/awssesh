@@ -3,7 +3,6 @@
 Interactive AWS SSO credential manager for your terminal.
 
 [![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
-[![npm downloads](https://img.shields.io/npm/dm/ssomatic)](https://www.npmjs.com/package/ssomatic)
 [![CI](https://github.com/tux86/ssomatic/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/ci.yml)
 [![Release](https://github.com/tux86/ssomatic/actions/workflows/release.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -107,7 +106,7 @@ ssomatic/
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
 
-Uses [Conventional Commits](https://www.conventionalcommits.org/) and [semantic-release](https://semantic-release.gitbook.io/).
+Uses [Conventional Commits](https://www.conventionalcommits.org/) and [release-please](https://github.com/googleapis/release-please).
 
 ## License
 
