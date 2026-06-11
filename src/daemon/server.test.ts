@@ -72,3 +72,22 @@ test("subscribe pushes state on broadcast", async () => {
   expect(msg.type === "state" && msg.profiles[0].status).toBe("refreshing");
   sock.destroy();
 });
+
+test("stop() resolves even with a lingering non-subscriber connection", async () => {
+  server = await startServer({
+    startedAtIso: "2026-06-11T10:00:00.000Z",
+    computeState: async () => fakeProfiles,
+    refreshProfile: async () => {},
+    tickMs: 10_000,
+  });
+  const sock = connect(socketPath());
+  await new Promise((r) => sock.once("connect", r));
+  const reply = readOne(sock);
+  sock.write(encode({ type: "snapshot" }));
+  await reply; // got snapshot; deliberately do NOT destroy sock
+  await Promise.race([
+    server.stop(),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("stop() hung")), 2000)),
+  ]);
+  sock.destroy();
+});

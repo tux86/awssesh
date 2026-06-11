@@ -24,6 +24,7 @@ export interface DaemonServer {
 
 export async function startServer(deps: ServerDeps): Promise<DaemonServer> {
   await reclaimStaleSocket();
+  const connections = new Set<Socket>();
   const subscribers = new Set<Socket>();
   let state: ProfileState[] = [];
   let stopped = false;
@@ -71,12 +72,23 @@ export async function startServer(deps: ServerDeps): Promise<DaemonServer> {
   }
 
   const netServer: Server = createServer((sock) => {
+    connections.add(sock);
     const dec = decodeStream<ClientMessage>();
     sock.on("data", (buf) => {
-      for (const msg of dec.push(buf.toString())) void handle(sock, msg);
+      for (const msg of dec.push(buf.toString())) {
+        handle(sock, msg).catch((err) => {
+          if (!sock.destroyed) sock.write(encode({ type: "error", message: String(err) }));
+        });
+      }
     });
-    sock.on("close", () => subscribers.delete(sock));
-    sock.on("error", () => subscribers.delete(sock));
+    sock.on("close", () => {
+      connections.delete(sock);
+      subscribers.delete(sock);
+    });
+    sock.on("error", () => {
+      connections.delete(sock);
+      subscribers.delete(sock);
+    });
   });
 
   await new Promise<void>((resolve) => netServer.listen(socketPath(), resolve));
@@ -88,7 +100,8 @@ export async function startServer(deps: ServerDeps): Promise<DaemonServer> {
     if (stopped) return;
     stopped = true;
     clearInterval(interval);
-    for (const sock of subscribers) sock.destroy();
+    for (const sock of connections) sock.destroy();
+    connections.clear();
     subscribers.clear();
     await new Promise<void>((resolve) => netServer.close(() => resolve()));
     clearPidFile();
