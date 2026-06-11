@@ -7,7 +7,8 @@
   "license": "MIT",
   "bin": { "ssomatic": "dist/cli.js" },
   "files": ["dist"],
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=18", "bun": ">=1.3.14" },
+  "packageManager": "bun@1.3.14",
   "repository": {
     "type": "git",
     "url": "https://github.com/tux86/ssomatic.git"
