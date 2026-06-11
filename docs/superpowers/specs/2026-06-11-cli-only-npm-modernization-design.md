@@ -1,106 +1,105 @@
-# SSOmatic v2 — CLI pure, npm, KISS — Design
+# SSOmatic v2 — CLI-only, npm, KISS — Design
 
 **Date:** 2026-06-11
 **Status:** Approved (design phase)
 
-## Objectif
+## Goal
 
-Simplifier SSOmatic (KISS) pour en faire un projet GitHub public professionnel :
-**CLI interactive uniquement** (suppression de la couche web), distribuée via **npm**
-(`npx ssomatic`), code **runtime-agnostique** (Node + Bun), avec des **tests unitaires**
-sur la logique AWS/SSO.
+Simplify SSOmatic (KISS) into a professional public GitHub project:
+**interactive CLI only** (drop the web layer), distributed via **npm** (`npx ssomatic`),
+**runtime-agnostic** code (Node + Bun), with **unit tests** on the AWS/SSO logic.
 
-Aucune fonctionnalité utilisateur n'est retirée : status, refresh/login, daemon
-(auto-refresh), favoris et notifications sont conservés. Le travail porte sur le retrait
-du web, la plomberie runtime, l'emballage et la modernisation.
+No user-facing feature is removed: status, refresh/login, daemon (auto-refresh),
+favorites and notifications are all kept. The work targets web removal, runtime
+plumbing, packaging, and modernization.
 
-## Décisions de cadrage
+## Scoping decisions
 
-| Question | Décision |
+| Question | Decision |
 |----------|----------|
-| Forme de la CLI | TUI interactif uniquement (comme aujourd'hui) |
-| Fonctionnalités | Toutes conservées (status, refresh/login, daemon, favoris+notifications) |
+| CLI form | Interactive TUI only (as today) |
+| Features | All kept (status, refresh/login, daemon, favorites + notifications) |
 | Distribution | npm — `npx ssomatic` / `bunx ssomatic` / `npm i -g ssomatic` |
-| Runtime | Node ≥ 18 **et** Bun (code agnostique) |
-| Tests | Tests unitaires sur la logique AWS/SSO (`bun test`), pas de tests TUI |
+| Runtime | Node ≥ 18 **and** Bun (runtime-agnostic code) |
+| Tests | Unit tests on AWS/SSO logic (`bun test`), no TUI tests |
 
 ---
 
-## 1. Suppression du web → nouvelle structure
+## 1. Web removal → new structure
 
-### Fichiers/dossiers supprimés
-- `src/web/` en entier (server.ts, client React, `assets.generated.ts`, `index.css`, components, hooks, lib)
+### Files/directories deleted
+- `src/web/` entirely (server.ts, React client, `assets.generated.ts`, `index.css`, components, hooks, lib)
 - `scripts/embed-assets.ts`
 - `vite.config.ts`
 - `tailwind.config.js`
 - `postcss.config.js`
 - `tsconfig.web.json`
 
-### Dépendances retirées
+### Dependencies removed
 `vite`, `@vitejs/plugin-react`, `tailwindcss`, `autoprefixer`, `postcss`,
-`react-dom`, `@types/react-dom` (Ink utilise son propre renderer, pas react-dom).
+`react-dom`, `@types/react-dom` (Ink uses its own renderer, not react-dom).
 
-`react` est conservé (requis par Ink).
+`react` is kept (required by Ink).
 
-### Structure finale
+### Final structure
 ```
 src/
-├── aws/        # sso.ts, aws.ts, utils.ts  (logique, runtime-agnostique)
+├── aws/        # sso.ts, aws.ts, utils.ts  (logic, runtime-agnostic)
 ├── cli/        # index.tsx, components/, hooks/
 └── version.ts
 ```
 
-### Nettoyage associé
-- Retrait de `webServer` et `webPort` de `AppSettings` et `DEFAULT_SETTINGS` (`sso.ts`)
-- Retrait de la vue `settings-webport` et de l'état de vue correspondant dans `cli/index.tsx`
-- Retrait du toggle `w` (web server) dans l'ActionBar / Header / `useInput`
-- Retrait de l'import et des appels `startServer`/`stopServer`/`isServerRunning` dans `cli/index.tsx`
+### Associated cleanup
+- Remove `webServer` and `webPort` from `AppSettings` and `DEFAULT_SETTINGS` (`sso.ts`)
+- Remove the `settings-webport` view and its view-state in `cli/index.tsx`
+- Remove the `w` (web server) toggle in the ActionBar / Header / `useInput`
+- Remove the import and the `startServer`/`stopServer`/`isServerRunning` calls in `cli/index.tsx`
 
 ---
 
-## 2. Code runtime-agnostique (Node + Bun)
+## 2. Runtime-agnostic code (Node + Bun)
 
-Les ~9 appels Bun-spécifiques de `src/aws/sso.ts` sont remplacés par les API Node standard
-afin que `npx ssomatic` (qui s'exécute sous Node) fonctionne :
+The ~9 Bun-specific calls in `src/aws/sso.ts` are replaced with standard Node APIs
+so that `npx ssomatic` (which runs under Node) works:
 
-| Bun (actuel) | Remplacement Node |
-|--------------|-------------------|
+| Bun (current) | Node replacement |
+|---------------|------------------|
 | `Bun.file(p).text()` | `await readFile(p, "utf8")` (`node:fs/promises`) |
 | `Bun.file(p).json()` | `JSON.parse(await readFile(p, "utf8"))` |
 | `Bun.write(p, data)` | `await writeFile(p, data)` (`node:fs/promises`) |
 | `Bun.spawn([cmd, ...])` | `spawn(cmd, [...])` (`node:child_process`) |
 
-Localisations connues dans `sso.ts` : lignes ~108, 124, 129, 137, 156, 293
-(fichiers credentials / settings / cache token) et ~375, 422, 428
-(`openBrowser`, `notify-send`/notifications).
+Known locations in `sso.ts`: lines ~108, 124, 129, 137, 156, 293
+(credentials / settings / token-cache files) and ~375, 422, 428
+(`openBrowser`, `notify-send` / notifications).
 
-Le résultat tourne sous **Node ≥ 18 et Bun**. `src/aws/utils.ts` utilise déjà
-`node:child_process` (clipboard). Aucune dépendance ajoutée.
+The result runs under **Node ≥ 18 and Bun**. `src/aws/utils.ts` already uses
+`node:child_process` (clipboard). No dependency added.
 
 ---
 
-## 3. Distribution npm
+## 3. npm distribution
 
 ### `package.json`
-- `"private": true` → **retiré**
-- Ajout :
+- `"private": true` → **removed**
+- Added:
   - `"bin": { "ssomatic": "dist/cli.js" }`
   - `"files": ["dist"]`
   - `"engines": { "node": ">=18" }`
-- Sortie de build avec shebang `#!/usr/bin/env node`
+- Build output carries the `#!/usr/bin/env node` shebang
 
 ### Build
-Remplacement de l'ancien pipeline (`vite build && embed-assets && bun build --compile`) par :
+Replace the old pipeline (`vite build && embed-assets && bun build --compile`) with:
 ```
 bun build src/cli/index.tsx --target node --outfile dist/cli.js
 ```
-- Dépendances runtime **externes** (non bundlées) et déclarées dans `dependencies` →
-  npm/bun les installe chez l'utilisateur.
-- Plus de compilation en binaire autonome, plus de Vite, plus d'embedding d'assets.
-- Le shebang `#!/usr/bin/env node` doit être présent en tête de `dist/cli.js`
-  (préservé depuis la source ou ajouté par une étape post-build minimale).
+- Runtime dependencies stay **external** (not bundled) and declared in `dependencies` →
+  npm/bun installs them on the user's machine.
+- No standalone binary compilation, no Vite, no asset embedding.
+- The `#!/usr/bin/env node` shebang must be present at the top of `dist/cli.js`
+  (preserved from source or added by a minimal post-build step).
 
-### Scripts `package.json` (cibles)
+### `package.json` scripts (target)
 ```jsonc
 {
   "start": "bun run src/cli/index.tsx",
@@ -111,68 +110,68 @@ bun build src/cli/index.tsx --target node --outfile dist/cli.js
   "prepare": "husky"
 }
 ```
-(`prestart` supprimé — il ne servait qu'à générer `assets.generated.ts`.)
+(`prestart` removed — it only existed to generate `assets.generated.ts`.)
 
 ### Release (semantic-release)
-- Configuration conservée.
-- **Activation de `@semantic-release/npm`** (déjà présent en devDependencies) pour publier
-  sur npm automatiquement à chaque release.
-- Retrait de l'attachement de binaires aux releases GitHub (plus de binaires produits).
-- Prérequis : secret `NPM_TOKEN` dans les settings du repo GitHub (en plus du `RELEASE_TOKEN`
-  existant pour GitHub Releases).
+- Configuration kept.
+- **Enable `@semantic-release/npm`** (already in devDependencies) to publish to npm
+  automatically on each release.
+- Stop attaching binaries to GitHub releases (no binaries produced anymore).
+- Prerequisite: `NPM_TOKEN` secret in the GitHub repo settings (in addition to the
+  existing `RELEASE_TOKEN` for GitHub Releases).
 
-### Usage final
+### Final usage
 ```bash
-npx ssomatic          # zéro install
+npx ssomatic          # zero install
 bunx ssomatic
-npm i -g ssomatic     # install globale
+npm i -g ssomatic     # global install
 ```
 
 ---
 
 ## 4. Tests (`bun test`)
 
-Tests unitaires ciblés sur la logique pure, sans TUI :
+Unit tests focused on the pure logic, no TUI:
 
 - **`sso.ts`**
-  - Parsing du fichier de config AWS (ini) → `discoverProfiles`
-  - Lecture/écriture du cache token (round-trip via fichier temp)
-  - Calcul de statut `valid` / `expired` selon la date d'expiration
-  - Tri par favoris (`sortByFavorites`)
+  - AWS config-file parsing (ini) → `discoverProfiles`
+  - Token-cache read/write (round-trip via temp file)
+  - `valid` / `expired` status computation based on expiry date
+  - Favorites sorting (`sortByFavorites`)
   - `formatExpiry`
 - **`utils.ts`**
-  - `formatJson` (JSON valide / invalide)
+  - `formatJson` (valid / invalid JSON)
 
-Modalités :
-- Fixtures fichiers via `os.tmpdir()` pour isoler le filesystem.
-- Lancé par `bun test`, branché dans la CI.
-- Optionnel : badge coverage.
-
----
-
-## 5. Modernisation / polish « repo public pro »
-
-- **README** : suppression de la section Web UI et du GIF web, recentrage CLI,
-  install via `npx` mise en avant, badges `npm version` + `npm downloads`.
-- **CI** (`.github/workflows/ci.yml`) : simplifiée → `lint` + `test` + `build`
-  (plus de build web).
-- **`package.json`** : `description` et `keywords` recentrés CLI/AWS SSO.
-- **`CLAUDE.md`** : mise à jour de la structure et des commandes pour refléter
-  la nouvelle architecture (plus de section web, plus de scope `web`).
+Details:
+- File fixtures via `os.tmpdir()` to isolate the filesystem.
+- Run by `bun test`, wired into CI.
+- Optional: coverage badge.
 
 ---
 
-## Hors périmètre (YAGNI)
+## 5. Modernization / "public pro repo" polish
 
-- Mode commandes directes / sous-commandes scriptables (rejeté : TUI uniquement).
-- Binaires GitHub autonomes (remplacés par npm).
-- Tests du TUI Ink (fragiles).
-- Toute refonte de l'architecture `aws/` ↔ `cli/` (déjà propre).
+- **README**: remove the Web UI section and web GIF, recenter on the CLI,
+  surface `npx` install at the top, add `npm version` + `npm downloads` badges.
+- **CI** (`.github/workflows/ci.yml`): simplified → `lint` + `test` + `build`
+  (no more web build).
+- **`package.json`**: `description` and `keywords` recentered on CLI / AWS SSO.
+- **`CLAUDE.md`**: update structure and commands to reflect the new architecture
+  (no web section, no `web` scope).
 
-## Risques / points d'attention
+---
 
-- **Shebang Node** : vérifier que `dist/cli.js` démarre bien sous Node pur
-  (pas seulement Bun) après le refactor runtime — c'est le critère de succès principal.
-- **`NPM_TOKEN`** : doit être configuré avant la première release npm.
-- **`scope` commitlint** : le scope `web` devient inutile ; à retirer de la config
-  des scopes autorisés dans un commit `chore`.
+## Out of scope (YAGNI)
+
+- Direct / scriptable subcommand mode (rejected: TUI only).
+- Standalone GitHub binaries (replaced by npm).
+- Ink TUI tests (fragile).
+- Any rework of the `aws/` ↔ `cli/` architecture (already clean).
+
+## Risks / watch points
+
+- **Node shebang**: verify `dist/cli.js` starts under plain Node (not only Bun)
+  after the runtime refactor — this is the primary success criterion.
+- **`NPM_TOKEN`**: must be configured before the first npm release.
+- **commitlint `scope`**: the `web` scope becomes useless; remove it from the
+  allowed-scopes config.
