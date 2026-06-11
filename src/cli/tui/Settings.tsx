@@ -1,19 +1,25 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { AppSettings } from "../../aws/settings.js";
+import { Key } from "../components/KeyHint.js";
 
 interface Props {
   settings: AppSettings;
   onChange: (next: AppSettings) => void;
   onBack: () => void;
+  onQuit: () => void;
 }
 
-export function Settings({ settings, onChange, onBack }: Props) {
+export function Settings({ settings, onChange, onBack, onQuit }: Props) {
   const [cursor, setCursor] = useState(0);
   const items = ["notifications", "refreshLeadMinutes", "autoStartDaemon"] as const;
   useInput((input, key) => {
     if (key.escape) {
       onBack();
+      return;
+    }
+    if (input === "q") {
+      onQuit();
       return;
     }
     if (key.upArrow || input === "k") {
@@ -50,7 +56,13 @@ export function Settings({ settings, onChange, onBack }: Props) {
       {line(0, "Notifications", settings.notifications ? "on" : "off")}
       {line(1, "Refresh lead (min)", String(settings.refreshLeadMinutes) + "  (←/→)")}
       {line(2, "Auto-start daemon", settings.autoStartDaemon ? "on" : "off")}
-      <Text dimColor>space/⏎ toggle  ←→ adjust  esc back</Text>
+      <Box marginTop={1}>
+        <Key k="↑↓">move</Key>
+        <Key k="space/⏎">toggle</Key>
+        <Key k="←→">adjust</Key>
+        <Key k="Esc">back</Key>
+        <Key k="q">quit</Key>
+      </Box>
     </Box>
   );
 }

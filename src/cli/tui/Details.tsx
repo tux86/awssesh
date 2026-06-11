@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import type { ProfileState } from "../../daemon/protocol.js";
+import { Key } from "../components/KeyHint.js";
 
 interface Props {
   profile: ProfileState;
@@ -8,11 +9,18 @@ interface Props {
   region?: string;
   startUrl?: string;
   onBack: () => void;
+  onQuit: () => void;
 }
 
-export function Details({ profile, arn, region, startUrl, onBack }: Props) {
-  useInput((_input, key) => {
-    if (key.escape || key.return) onBack();
+export function Details({ profile, arn, region, startUrl, onBack, onQuit }: Props) {
+  useInput((input, key) => {
+    if (key.escape || key.return) {
+      onBack();
+      return;
+    }
+    if (input === "q") {
+      onQuit();
+    }
   });
   const row = (label: string, value: string) => (
     <Text>
@@ -29,7 +37,11 @@ export function Details({ profile, arn, region, startUrl, onBack }: Props) {
       {row("status", profile.status)}
       {row("expires", profile.expiresAt ?? "—")}
       {row("sso url", startUrl ?? "—")}
-      <Text dimColor>esc back</Text>
+      <Box marginTop={1}>
+        <Key k="⏎">back</Key>
+        <Key k="Esc">back</Key>
+        <Key k="q">quit</Key>
+      </Box>
     </Box>
   );
 }

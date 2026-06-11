@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { ProfileState, ProfileStatusKind } from "../../daemon/protocol.js";
+import { Key } from "../components/KeyHint.js";
 
 interface Props {
   profiles: ProfileState[];
@@ -50,16 +51,6 @@ function minsLeft(expiresAt: string | null): string {
 
 function pad(s: string, w: number): string {
   return s.length >= w ? s : s + " ".repeat(w - s.length);
-}
-
-/** A keyboard shortcut hint: key char(s) in bold cyan, description in dim. */
-function Key({ k, children }: { k: string; children: React.ReactNode }) {
-  return (
-    <Text>
-      <Text bold color="cyan">{k}</Text>
-      <Text dimColor> {children}  </Text>
-    </Text>
-  );
 }
 
 /** A single fixed-width cell. Highlighted rows render inverse; columns never drift. */

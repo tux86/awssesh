@@ -11,7 +11,7 @@ import { runExport } from "./commands/export.js";
 import { runRefresh } from "./commands/refresh.js";
 import { runDaemonCommand } from "./commands/daemon.js";
 import { runDaemon } from "../daemon/index.js";
-import { App, renderApp, Spinner, StatusMessage, ACTIONS } from "./components/index.js";
+import { App, renderApp, Spinner, StatusMessage, ACTIONS, Key } from "./components/index.js";
 import { useCopy } from "./hooks/index.js";
 import { Dashboard } from "./tui/Dashboard.js";
 import { Details } from "./tui/Details.js";
@@ -129,7 +129,10 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
         <StatusMessage type="error">
           Failed to start device authorization. Check your network and SSO configuration.
         </StatusMessage>
-        <Text dimColor>Press Esc to go back</Text>
+        <Box marginTop={1}>
+          <Key k="Esc">back</Key>
+          <Key k="q">quit</Key>
+        </Box>
       </Box>
     );
   }
@@ -139,6 +142,9 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
       <Box marginTop={1} flexDirection="column">
         <Text color="yellow">SSO login required for {profile.name}</Text>
         <Spinner label="Initializing device authorization..." />
+        <Box marginTop={1}>
+          <Key k="q">quit</Key>
+        </Box>
       </Box>
     );
   }
@@ -161,7 +167,12 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
       </Box>
       <Box marginTop={1} flexDirection="column">
         {authorizing && <Spinner label="Waiting for browser authorization..." />}
-        <Text dimColor>Press Enter to open browser, c to copy URL</Text>
+        <Box>
+          <Key k="⏎">open browser</Key>
+          <Key k="c">copy URL</Key>
+          <Key k="Esc">cancel</Key>
+          <Key k="q">quit</Key>
+        </Box>
       </Box>
     </Box>
   );
@@ -255,6 +266,10 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   useInput(
     (input, key) => {
       if (!pendingLogin) return;
+      if (input === "q") {
+        exit();
+        return;
+      }
       if (authError) {
         if (key.escape) setPendingLogin(null);
         return;
@@ -419,7 +434,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   // Login overlay takes precedence over the active view.
   if (pendingLogin) {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} onQuit={() => exit()}>
+      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" onQuit={() => exit()}>
         <LoginPrompt
           profile={pendingLogin}
           deviceAuth={deviceAuth}
@@ -434,7 +449,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
   if (view === "settings") {
     return (
       <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" daemonRunning={daemon.running} statusItems={statusItems} onQuit={() => exit()}>
-        <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} />
+        <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} onQuit={() => exit()} />
       </App>
     );
   }
@@ -451,6 +466,7 @@ function SSOmatic({ startDaemon = false }: SSOmaticProps) {
             region={sso?.ssoRegion}
             startUrl={sso?.ssoStartUrl}
             onBack={() => setView("dashboard")}
+            onQuit={() => exit()}
           />
         </App>
       );
