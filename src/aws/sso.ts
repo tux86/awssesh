@@ -12,6 +12,7 @@ import {
 import { SSOClient, GetRoleCredentialsCommand } from "@aws-sdk/client-sso";
 import { parse as parseIni, stringify as stringifyIni } from "ini";
 import { readFile, writeFile, mkdir, chmod } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
@@ -54,13 +55,6 @@ export interface DeviceAuthInfo {
   interval: number;
 }
 
-export interface AppSettings {
-  notifications: boolean;
-  defaultInterval: number;
-  favoriteProfiles: string[];
-  lastRefresh?: string;
-}
-
 export interface TokenInfo {
   accessToken: string;
   expiresAt: Date;
@@ -83,20 +77,6 @@ export const AWS_DIR = `${HOME}/.aws`;
 export const CONFIG_PATH = `${AWS_DIR}/config`;
 export const CREDENTIALS_PATH = `${AWS_DIR}/credentials`;
 export const SSO_CACHE_DIR = `${AWS_DIR}/sso/cache`;
-export const SETTINGS_PATH = `${AWS_DIR}/credentials-manager.json`;
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  notifications: true,
-  defaultInterval: 30,
-  favoriteProfiles: [],
-};
-
-export const REFRESH_INTERVALS = [
-  { value: 15, label: "15 minutes" },
-  { value: 30, label: "30 minutes", hint: "recommended" },
-  { value: 60, label: "1 hour" },
-  { value: 120, label: "2 hours" },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File Utilities
@@ -122,20 +102,6 @@ export async function writeCredentials(profileName: string, credentials: AWSCred
 
   await mkdir(AWS_DIR, { recursive: true });
   await writeFile(CREDENTIALS_PATH, stringifyIni(existing));
-}
-
-export async function loadSettings(): Promise<AppSettings> {
-  try {
-    const content = await readFile(SETTINGS_PATH, "utf8");
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(content) };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  await mkdir(AWS_DIR, { recursive: true });
-  await writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -394,7 +360,7 @@ export async function performSSOLoginFlow(
 
 export async function refreshProfile(
   profile: SSOProfile
-): Promise<{ success: boolean; error?: string; needsLogin?: boolean }> {
+): Promise<{ success: boolean; error?: string; needsLogin?: boolean; expiresAt?: Date }> {
   const cachedToken = await findCachedToken(profile);
   if (!cachedToken || cachedToken.expiresAt <= new Date()) {
     return { success: false, needsLogin: true };
@@ -406,7 +372,25 @@ export async function refreshProfile(
   }
 
   await writeCredentials(profile.name, credentials);
-  return { success: true };
+  return { success: true, expiresAt: credentials.expiration };
+}
+
+export function readProfileCredentials(
+  profileName: string
+): { accessKeyId: string; secretAccessKey: string; sessionToken: string } | null {
+  try {
+    const content = readFileSync(CREDENTIALS_PATH, "utf8");
+    const parsed = parseIni(content) as ParsedConfig;
+    const section = parsed[profileName];
+    if (!section) return null;
+    const accessKeyId = section.aws_access_key_id;
+    const secretAccessKey = section.aws_secret_access_key;
+    const sessionToken = section.aws_session_token;
+    if (!accessKeyId || !secretAccessKey || !sessionToken) return null;
+    return { accessKeyId, secretAccessKey, sessionToken };
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

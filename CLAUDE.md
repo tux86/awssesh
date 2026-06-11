@@ -6,21 +6,46 @@
 
 Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
+SSOmatic is a single-process TUI. While open it auto-refreshes the ⟳ (pinned) profiles' role credentials in an expiry-aware manner, and sends a desktop notification when an interactive SSO browser login is needed. No background process — quitting fully exits.
+
 ## Structure
 
 ```
 ssomatic/
 ├── src/
 │   ├── aws/                   # Shared AWS logic (UI-agnostic)
-│   │   ├── sso.ts             # SSO profiles, tokens, refresh, settings
-│   │   ├── sso.test.ts        # Unit tests for sso.ts
+│   │   ├── sso.ts             # SSO profiles, tokens, refresh
+│   │   ├── sso.test.ts
+│   │   ├── settings.ts        # Persistent settings (favorites, notifications, interval)
+│   │   ├── settings.test.ts
+│   │   ├── console.ts         # AWS console URL builders
+│   │   ├── console.test.ts
+│   │   ├── profileState.ts    # ProfileState types + local-state builder
+│   │   ├── refreshScheduler.ts # Expiry-aware refresh decision (decideAction)
 │   │   ├── aws.ts             # STS identity utilities
 │   │   ├── utils.ts           # Clipboard, JSON formatting
-│   │   └── utils.test.ts      # Unit tests for utils.ts
+│   │   └── utils.test.ts
 │   └── cli/                   # Terminal UI (React/Ink)
-│       ├── index.tsx          # Entry point
-│       ├── components/        # Ink UI components
-│       └── hooks/             # Ink hooks (useIdentity, useCopy)
+│       ├── index.tsx          # Entry point + argument router
+│       ├── args.ts            # CLI argument parsing
+│       ├── args.test.ts
+│       ├── commands/          # Non-TUI subcommands
+│       │   ├── status.ts      # `ssomatic status`
+│       │   ├── status.test.ts
+│       │   ├── export.ts      # `ssomatic export <profile>`
+│       │   └── refresh.ts     # `ssomatic refresh [profile]`
+│       ├── tui/               # TUI screens
+│       │   ├── Dashboard.tsx  # Main profile list view
+│       │   ├── Details.tsx    # Profile detail view
+│       │   ├── Settings.tsx   # Settings screen
+│       │   └── useAutoRefresh.ts # Hook: in-process auto-refresh for ⟳ profiles
+│       ├── components/        # Shared Ink UI components
+│       │   ├── App.tsx        # Root container
+│       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
+│       │   ├── Spinner.tsx
+│       │   └── StatusMessage.tsx
+│       └── hooks/             # Shared hooks
+│           └── useCopy.tsx    # Clipboard copy with feedback
 ├── dist/                      # Build output
 │   └── cli.js                 # Node CLI bundle (npm bin)
 ├── docs/screenshots/          # Demo GIFs for README
@@ -42,6 +67,8 @@ ssomatic/
 
 ## Commands
 
+### Dev / Build / Test
+
 ```bash
 bun install           # Install dependencies
 bun run start         # Run CLI
@@ -51,11 +78,30 @@ bun run lint          # Run ESLint
 bun test              # Run unit tests
 ```
 
-## Keyboard Shortcuts
+### Runtime CLI subcommands
+
+```bash
+ssomatic                        # Launch the interactive TUI
+ssomatic status                 # Print profile statuses and exit
+ssomatic refresh [profile]      # Refresh a profile (or all favorites) now
+ssomatic export <profile>       # Print export AWS_* lines (use with eval $(ssomatic export <profile>))
+ssomatic --version
+```
+
+## Keyboard Shortcuts (Dashboard)
 
 | Key | Action |
 |-----|--------|
-| `Escape` | Back |
+| `↑` / `↓` / `k` / `j` | Move cursor |
+| `⏎` | Open details |
+| `r` | Refresh the current profile |
+| `a` | Toggle ⟳ auto-refresh |
+| `c` | Copy export (`AWS_*` env vars) |
+| `y` | Copy profile name |
+| `o` | Open AWS console |
+| `/` | Filter profiles |
+| `s` | Open settings |
+| `Esc` | Back |
 | `q` | Quit |
 
 ## Commits & Releases
