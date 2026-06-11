@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * SSOmatic - Interactive TUI for managing AWS SSO credentials
  */

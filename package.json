@@ -2,9 +2,11 @@
   "name": "ssomatic",
   "version": "1.2.3",
   "description": "SSOmatic — Auto-discover, refresh, and manage your AWS SSO credentials from the terminal or browser. Built with Bun, React, and TypeScript.",
-  "private": true,
   "type": "module",
   "license": "MIT",
+  "bin": { "ssomatic": "dist/cli.js" },
+  "files": ["dist"],
+  "engines": { "node": ">=18" },
   "repository": {
     "type": "git",
     "url": "https://github.com/tux86/ssomatic.git"
