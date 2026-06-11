@@ -28,6 +28,7 @@ export default [
         Set: "readonly",
         Date: "readonly",
         URL: "readonly",
+        URLSearchParams: "readonly",
         Response: "readonly",
         fetch: "readonly",
       },
