@@ -22,6 +22,7 @@ export function App({
   onQuit,
 }: AppProps) {
   const { exit } = useApp();
+  const hasStatusItems = !!statusItems && statusItems.length > 0;
 
   // Global keyboard handler
   useInput((input, key) => {
@@ -46,7 +47,7 @@ export function App({
       </Box>
 
       {/* Status bar */}
-      {statusItems && statusItems.length > 0 && (
+      {hasStatusItems && (
         <Box flexDirection="column" marginTop={1}>
           <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderColor="gray" />
           <Box gap={2}>
@@ -59,7 +60,7 @@ export function App({
 
       {/* Action bar */}
       {actions && actions.length > 0 && (
-        <Box flexDirection="column" marginTop={statusItems ? 0 : 1}>
+        <Box flexDirection="column" marginTop={hasStatusItems ? 0 : 1}>
           <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderColor="gray" />
           <ActionBar actions={actions} />
         </Box>
