@@ -15,6 +15,14 @@ replaced by npm (npx ssomatic / npm i -g ssomatic).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/ssomatic/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/ssomatic/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [1.3.1](https://github.com/tux86/ssomatic/compare/v1.3.0...v1.3.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* **cli:** restore action bar top margin when no status items ([7189bba](https://github.com/tux86/ssomatic/commit/7189bbaa66b2372437f77c2391ab23a239616f7e))
+* **cli:** restore action bar top margin when no status items ([8808ced](https://github.com/tux86/ssomatic/commit/8808ced9af9b144158f3e09828d5b8fe78bd5486))
+
 ## [1.2.3](https://github.com/tux86/ssomatic/compare/v1.2.2...v1.2.3) (2026-03-26)
 
 ### Bug Fixes
