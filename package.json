@@ -1,14 +1,16 @@
 {
   "name": "ssomatic",
   "version": "1.3.0",
-  "description": "Interactive AWS SSO credential manager for your terminal — auto-discover, refresh, and manage SSO credentials. Built with Bun, React, and Ink.",
+  "description": "AWS SSO credential manager with a terminal dashboard and background daemon — auto-refreshes starred profiles, expiry-aware, desktop notifications on login.",
   "keywords": [
     "aws",
     "sso",
+    "aws-sso",
     "cli",
     "tui",
     "credentials",
-    "aws-sso",
+    "daemon",
+    "terminal",
     "ink",
     "bun"
   ],

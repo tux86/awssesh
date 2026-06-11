@@ -1,14 +1,31 @@
 # SSOmatic
 
-Interactive AWS SSO credential manager for your terminal.
+Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard with a background daemon that silently maintains your favorites while you work.
 
 [![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
 [![CI](https://github.com/tux86/ssomatic/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/ci.yml)
-[![Release](https://github.com/tux86/ssomatic/actions/workflows/release.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/tux86/ssomatic)](https://github.com/tux86/ssomatic)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
+---
+
+## Why SSOmatic
+
+- **k9s-style list-first dashboard** — all your SSO profiles at a glance with live expiry countdowns; navigate with j/k or arrow keys, no menus to dig through.
+- **Background daemon that keeps ★ favorites fresh** — expiry-aware refresh means credentials are always ready before they expire, with zero fixed-interval polling waste.
+- **Notify-on-login, never surprise you** — when an interactive SSO login is required the daemon sends a desktop notification; it never opens a browser on its own.
+- **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
+- **Attach from any terminal** — run `ssomatic` once to open the TUI; press `b` to push it to the background; re-run `ssomatic` from any terminal window to reconnect to the live daemon state.
+
+---
+
+## Demo
+
+<!-- TODO: re-record demo GIF for the v2 dashboard + daemon -->
+<p align="center">
+  <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
+</p>
 
 ---
 
@@ -23,39 +40,82 @@ bunx ssomatic
 npm install -g ssomatic
 ```
 
-> **Upgrading from 1.x?** SSOmatic is now a CLI-only tool distributed via npm. The
-> built-in web UI has been removed, and the Homebrew tap / standalone binaries are
-> replaced by npm. Uninstall the old binary (`brew uninstall ssomatic`) and use
-> `npx ssomatic` or `npm i -g ssomatic` instead. Your `~/.aws` profiles and saved
-> settings are unaffected.
+---
 
-## Demo
+## Quick Start
 
-<p align="center">
-  <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
-</p>
+```bash
+# 1. Launch the dashboard
+ssomatic
 
-## Features
+# 2. Star the profiles you use daily — press f on any profile
+# 3. Send to background — press b (daemon stays running, terminal returns)
+# 4. From any terminal, re-attach to live state
+ssomatic
+```
 
-- **Auto-discovery** — Scans `~/.aws/config` for SSO profiles (legacy and sso_session)
-- **Status dashboard** — View credential validity with expiry countdown
-- **Multi-select refresh** — Refresh multiple profiles at once with SSO device auth
-- **Auto-refresh daemon** — Background process to keep credentials fresh
-- **Desktop notifications** — Alerts when credentials expire (macOS/Linux)
-- **Persistent settings** — Notifications and favorites saved across sessions
+The daemon keeps your starred profiles' credentials fresh in the background. When a browser login is required, you get a desktop notification and can log in from the TUI or with `ssomatic refresh <profile>`.
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `ssomatic` | Launch the interactive TUI (attaches to daemon if running) |
+| `ssomatic --daemon` | Launch the TUI and start the background daemon |
+| `ssomatic status` | Print profile statuses and exit |
+| `ssomatic refresh [name]` | Refresh a profile (or all favorites) now |
+| `ssomatic export <name>` | Print `export AWS_*` lines for `eval $(...)` |
+| `ssomatic daemon start\|stop\|status` | Manage the background daemon directly |
+| `ssomatic --version` | Print version and exit |
+
+**Shell trick — inject credentials into your current shell:**
+
+```bash
+eval $(ssomatic export prod)
+```
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` or `j` / `k` | Move cursor |
+| `Space` | Toggle profile selection |
+| `a` | Select all / deselect all |
+| `Enter` | Open profile details |
+| `r` | Refresh selected (or current) profile(s) |
+| `b` | Run daemon in background, detach TUI |
+| `f` | Toggle ★ favorite |
+| `c` | Copy `export AWS_*` to clipboard |
+| `y` | Copy profile name to clipboard |
+| `o` | Open AWS console in browser |
+| `/` | Filter profiles by name |
+| `s` | Open settings |
+| `Esc` | Back |
+| `q` | Quit |
+
+---
+
+## How the Daemon Works
+
+One daemon instance runs per host, listening on a Unix socket (`$XDG_RUNTIME_DIR/ssomatic.sock` or `$TMPDIR/ssomatic.sock`). The TUI attaches to it via that socket so any `ssomatic` invocation sees the same live state.
+
+**Expiry-aware refresh** — the daemon tracks the role-credential expiry for each starred profile and refreshes only when the credentials are within the lead window of expiring (default: a few minutes before expiry). No fixed interval; no wasted refreshes.
+
+**Never opens a browser** — when an interactive SSO login is needed the daemon sends a desktop notification (`SSOmatic: <profile> needs login`). You authorize by running `ssomatic` (TUI) or `ssomatic refresh <profile>`.
+
+Daemon logs are written to `~/.aws/ssomatic/daemon.log`.
+
+---
 
 ## Prerequisites
 
 - [AWS CLI v2](https://aws.amazon.com/cli/) configured with SSO profiles in `~/.aws/config`
 
-## Usage
-
-Launch it (`ssomatic`, or `npx ssomatic` / `bunx ssomatic`) and use the interactive menu:
-
-- **Check status** — see every SSO profile and whether its credentials are valid or expired
-- **Refresh now** — log in and refresh one or more profiles (opens the SSO device-authorization flow)
-- **Auto-refresh** — keep selected profiles refreshed automatically on an interval
-- **Settings** — toggle notifications, set the default interval, and pick favorite profiles
+---
 
 ## Development
 
@@ -66,39 +126,14 @@ git clone https://github.com/tux86/ssomatic.git
 cd ssomatic
 bun install
 
-bun run start         # Run from source
-bun run dev           # Run with --watch (auto-restart on changes)
-bun run build         # Build the Node CLI bundle (dist/cli.js)
-bun run lint          # Run ESLint
-bun test              # Run unit tests
+bun run start    # Run from source
+bun run dev      # Run with --watch (auto-restart on changes)
+bun run build    # Build the Node CLI bundle (dist/cli.js)
+bun run lint     # Run ESLint
+bun test         # Run unit tests
 ```
 
-## Project Structure
-
-```
-ssomatic/
-├── src/
-│   ├── aws/           # Shared AWS credential logic (sso.ts, aws.ts, utils.ts)
-│   │   └── *.test.ts   # Unit tests
-│   └── cli/           # Terminal UI (React/Ink) — entry point
-│       ├── index.tsx   # Main app
-│       ├── components/ # Ink UI components
-│       └── hooks/      # useIdentity, useCopy
-├── dist/              # Build output (dist/cli.js — the npm bin)
-└── package.json
-```
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Navigate |
-| `Enter` | Select |
-| `Space` | Toggle selection |
-| `a` | Select all / none |
-| `c` | Copy URL |
-| `Escape` | Back |
-| `q` | Quit |
+---
 
 ## Contributing
 
