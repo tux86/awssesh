@@ -1,6 +1,6 @@
 /**
  * SSOmatic - Core business logic (UI-agnostic)
- * Shared between CLI (Ink) and Web (React) interfaces
+ * Used by the CLI (Ink) interface
  */
 
 import {
@@ -55,8 +55,6 @@ export interface AppSettings {
   notifications: boolean;
   defaultInterval: number;
   favoriteProfiles: string[];
-  webServer: boolean;
-  webPort: number;
   lastRefresh?: string;
 }
 
@@ -88,8 +86,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifications: true,
   defaultInterval: 30,
   favoriteProfiles: [],
-  webServer: false,
-  webPort: 9876,
 };
 
 export const REFRESH_INTERVALS = [
