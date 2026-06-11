@@ -1,9 +1,10 @@
 import React from "react";
-import { Box, Text, render as inkRender, useInput } from "ink";
+import { Box, render as inkRender, useInput } from "ink";
 import { ActionBar, ActionItem } from "./ActionBar.js";
+import { Wordmark } from "./Wordmark.js";
 
 export interface AppProps {
-  title: string;
+  title?: string;
   icon?: string;
   color?: string;
   actions?: ActionItem[];
@@ -18,9 +19,6 @@ export interface AppProps {
 const CONTENT_WIDTH = 68;
 
 export function App({
-  title,
-  icon = "▲",
-  color = "cyan",
   actions,
   statusItems,
   captureQuit = false,
@@ -41,10 +39,8 @@ export function App({
   return (
     <Box flexDirection="column" padding={1} width={CONTENT_WIDTH}>
       {/* Header */}
-      <Box marginBottom={1} justifyContent="space-between">
-        <Text color={color} bold>
-          {icon} {title}
-        </Text>
+      <Box marginBottom={1}>
+        <Wordmark />
       </Box>
 
       {/* Content */}

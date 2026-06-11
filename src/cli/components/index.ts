@@ -1,5 +1,6 @@
 // Layout components
 export { App, renderApp, type AppProps } from "./App.js";
+export { Wordmark } from "./Wordmark.js";
 
 // Interactive components
 export { ActionBar, ACTIONS, type ActionItem, type ActionBarProps } from "./ActionBar.js";
