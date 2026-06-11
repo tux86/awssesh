@@ -1,4 +1,3 @@
-import { request, isDaemonAlive } from "../../daemon/client";
 import type { ProfileState } from "../../aws/profileState";
 import { buildLocalProfileStates } from "../../aws/profileState";
 
@@ -21,18 +20,7 @@ export function formatStatusTable(rows: ProfileState[], now: Date): string {
 
 export async function runStatus(): Promise<number> {
   const now = new Date();
-  let rows: ProfileState[];
-  if (await isDaemonAlive()) {
-    try {
-      const msg = await request({ type: "snapshot" });
-      rows = msg.type === "state" ? msg.profiles : [];
-    } catch (err) {
-      process.stderr.write(`warning: daemon request failed (${String(err)}), falling back to local state\n`);
-      rows = await buildLocalProfileStates();
-    }
-  } else {
-    rows = await buildLocalProfileStates();
-  }
+  const rows = await buildLocalProfileStates();
   process.stdout.write(formatStatusTable(rows, now) + "\n");
   return 0;
 }

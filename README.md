@@ -1,6 +1,6 @@
 # SSOmatic
 
-Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard with a background daemon that silently maintains your favorites while you work.
+Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard that auto-refreshes your pinned profiles while it's open.
 
 [![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
 [![CI](https://github.com/tux86/ssomatic/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/ci.yml)
@@ -13,16 +13,16 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 ## Why SSOmatic
 
 - **k9s-style list-first dashboard** — all your SSO profiles at a glance with live expiry countdowns; navigate with j/k or arrow keys, no menus to dig through.
-- **Background daemon that keeps ⟳ auto-refresh profiles fresh** — pin a profile for auto-refresh and expiry-aware refresh keeps its credentials ready before they expire, with zero fixed-interval polling waste.
-- **Notify-on-login, never surprise you** — when an interactive SSO login is required the daemon sends a desktop notification; it never opens a browser on its own.
+- **In-process auto-refresh for ⟳ pinned profiles** — pin a profile with `a` and expiry-aware refresh keeps its credentials ready before they expire, with no fixed-interval polling waste.
+- **Notify-on-login, never surprise you** — when an interactive SSO login is required SSOmatic sends a desktop notification so you know to log in.
 - **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
-- **Attach from any terminal** — run `ssomatic` once to open the TUI; press `b` to push it to the background; re-run `ssomatic` from any terminal window to reconnect to the live daemon state.
+- **Single process, clean exit** — quitting fully exits. No background processes to manage.
 
 ---
 
 ## Demo
 
-<!-- TODO: re-record demo GIF for the v2 dashboard + daemon -->
+<!-- TODO: re-record demo GIF for the v2 dashboard -->
 <p align="center">
   <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
 </p>
@@ -48,13 +48,12 @@ npm install -g ssomatic
 # 1. Launch the dashboard
 ssomatic
 
-# 2. Star the profiles you use daily — press f on any profile
-# 3. Send to background — press b (daemon stays running, terminal returns)
-# 4. From any terminal, re-attach to live state
-ssomatic
+# 2. Navigate to a profile and press 'a' to pin it for auto-refresh
+# 3. SSOmatic auto-refreshes pinned profiles while the dashboard is open
+# 4. Press 'q' to quit when done
 ```
 
-The daemon keeps your ⟳ auto-refresh profiles' credentials fresh in the background. When a browser login is required, you get a desktop notification and can log in from the TUI or with `ssomatic refresh <profile>`.
+While the dashboard is open, ⟳ pinned profiles are refreshed automatically when their credentials are close to expiry. When a browser login is required, you get a desktop notification and can log in directly from the TUI or with `ssomatic refresh <profile>`.
 
 ---
 
@@ -62,12 +61,10 @@ The daemon keeps your ⟳ auto-refresh profiles' credentials fresh in the backgr
 
 | Command | Description |
 |---------|-------------|
-| `ssomatic` | Launch the interactive TUI (attaches to daemon if running) |
-| `ssomatic --daemon` | Launch the TUI and start the background daemon |
+| `ssomatic` | Launch the interactive TUI |
 | `ssomatic status` | Print profile statuses and exit |
 | `ssomatic refresh [name]` | Refresh a profile (or all favorites) now |
 | `ssomatic export <name>` | Print `export AWS_*` lines for `eval $(...)` |
-| `ssomatic daemon start\|stop\|status` | Manage the background daemon directly |
 | `ssomatic --version` | Print version and exit |
 
 **Shell trick — inject credentials into your current shell:**
@@ -85,8 +82,7 @@ eval $(ssomatic export prod)
 | `↑` / `↓` or `j` / `k` | Move cursor |
 | `Enter` | Open profile details |
 | `r` | Refresh the current profile |
-| `a` | Toggle ⟳ auto-refresh (pin for the daemon) |
-| `b` | Run daemon in background, detach TUI |
+| `a` | Toggle ⟳ auto-refresh (pin/unpin) |
 | `c` | Copy `export AWS_*` to clipboard |
 | `y` | Copy profile name to clipboard |
 | `o` | Open AWS console in browser |
@@ -97,15 +93,11 @@ eval $(ssomatic export prod)
 
 ---
 
-## How the Daemon Works
+## How Auto-Refresh Works
 
-One daemon instance runs per host, listening on a Unix socket (`$XDG_RUNTIME_DIR/ssomatic.sock` or `$TMPDIR/ssomatic.sock`). The TUI attaches to it via that socket so any `ssomatic` invocation sees the same live state.
+SSOmatic tracks the role-credential expiry for each ⟳ pinned profile and refreshes only when the credentials are within the lead window of expiring (default: 5 minutes before expiry). No fixed interval; no wasted refreshes.
 
-**Expiry-aware refresh** — the daemon tracks the role-credential expiry for each starred profile and refreshes only when the credentials are within the lead window of expiring (default: a few minutes before expiry). No fixed interval; no wasted refreshes.
-
-**Never opens a browser** — when an interactive SSO login is needed the daemon sends a desktop notification (`SSOmatic: <profile> needs login`). You authorize by running `ssomatic` (TUI) or `ssomatic refresh <profile>`.
-
-Daemon logs are written to `~/.aws/ssomatic/daemon.log`.
+When an interactive SSO login is needed, a desktop notification is sent (`SSOmatic: <profile> needs login`). You authorize by logging in from the TUI or with `ssomatic refresh <profile>`.
 
 ---
 

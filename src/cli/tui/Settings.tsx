@@ -11,7 +11,7 @@ interface Props {
 
 export function Settings({ settings, onChange, onBack }: Props) {
   const [cursor, setCursor] = useState(0);
-  const items = ["notifications", "refreshLeadMinutes", "autoStartDaemon"] as const;
+  const items = ["notifications", "refreshLeadMinutes"] as const;
   useInput((input, key) => {
     if (key.escape) {
       onBack();
@@ -34,8 +34,6 @@ export function Settings({ settings, onChange, onBack }: Props) {
     } else if (key.return || input === " ") {
       if (field === "notifications")
         onChange({ ...settings, notifications: !settings.notifications });
-      else if (field === "autoStartDaemon")
-        onChange({ ...settings, autoStartDaemon: !settings.autoStartDaemon });
     }
   });
   const line = (i: number, label: string, value: string) => (
@@ -50,7 +48,6 @@ export function Settings({ settings, onChange, onBack }: Props) {
       <Text bold>⚙ Settings</Text>
       {line(0, "Notifications", settings.notifications ? "on" : "off")}
       {line(1, "Refresh lead (min)", String(settings.refreshLeadMinutes) + "  (←/→)")}
-      {line(2, "Auto-start daemon", settings.autoStartDaemon ? "on" : "off")}
       <Box marginTop={1}>
         <Key k="↑↓">move</Key>
         <Key k="space/⏎">toggle</Key>

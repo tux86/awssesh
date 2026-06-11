@@ -4,14 +4,12 @@ import { join, dirname } from "node:path";
 export interface AppSettings {
   notifications: boolean;
   refreshLeadMinutes: number;
-  autoStartDaemon: boolean;
   favoriteProfiles: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   notifications: true,
   refreshLeadMinutes: 5,
-  autoStartDaemon: false,
   favoriteProfiles: [],
 };
 
@@ -24,12 +22,11 @@ export function loadSettings(): AppSettings {
   const path = settingsPath();
   if (!existsSync(path)) return { ...DEFAULT_SETTINGS };
   try {
-    const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<AppSettings> & { defaultInterval?: number };
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
     return {
-      notifications: raw.notifications ?? DEFAULT_SETTINGS.notifications,
-      refreshLeadMinutes: raw.refreshLeadMinutes ?? DEFAULT_SETTINGS.refreshLeadMinutes,
-      autoStartDaemon: raw.autoStartDaemon ?? DEFAULT_SETTINGS.autoStartDaemon,
-      favoriteProfiles: raw.favoriteProfiles ?? DEFAULT_SETTINGS.favoriteProfiles,
+      notifications: typeof raw.notifications === "boolean" ? raw.notifications : DEFAULT_SETTINGS.notifications,
+      refreshLeadMinutes: typeof raw.refreshLeadMinutes === "number" ? raw.refreshLeadMinutes : DEFAULT_SETTINGS.refreshLeadMinutes,
+      favoriteProfiles: Array.isArray(raw.favoriteProfiles) ? (raw.favoriteProfiles as string[]) : DEFAULT_SETTINGS.favoriteProfiles,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

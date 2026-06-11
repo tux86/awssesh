@@ -9,8 +9,6 @@ import { parseArgs } from "./args.js";
 import { runStatus } from "./commands/status.js";
 import { runExport } from "./commands/export.js";
 import { runRefresh } from "./commands/refresh.js";
-import { runDaemonCommand } from "./commands/daemon.js";
-import { runDaemon } from "../daemon/index.js";
 import { App, renderApp, Spinner, StatusMessage, ACTIONS, Key } from "./components/index.js";
 import { useCopy } from "./hooks/index.js";
 import { Dashboard } from "./tui/Dashboard.js";
@@ -36,7 +34,7 @@ import { VERSION, checkForUpdate } from "../version.js";
 type ViewState = "dashboard" | "details" | "settings";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hook: useDeviceAuth (reused for interactive login when no daemon is running)
+// Hook: useDeviceAuth (handles interactive SSO device authorization flow)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface UseDeviceAuthOptions {
@@ -474,7 +472,6 @@ Usage:
   ssomatic status          print profile statuses and exit
   ssomatic refresh [name]  refresh a profile (or all favorites) now
   ssomatic export <name>   print export AWS_* lines for eval $(...)
-  ssomatic daemon start|stop|status
   ssomatic --version
 `;
 
@@ -503,12 +500,6 @@ async function main(): Promise<void> {
       return;
     case "refresh":
       process.exit(await runRefresh(parsed.profile));
-      return;
-    case "daemon":
-      process.exit(await runDaemonCommand(parsed.sub));
-      return;
-    case "__daemon":
-      await runDaemon(); // long-lived; do not exit
       return;
     case "error":
       process.stderr.write(parsed.message + "\n");

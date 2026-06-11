@@ -6,7 +6,7 @@
 
 Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
-SSOmatic runs a real per-host background daemon (single instance, Unix socket). It keeps ⟳ auto-refresh profiles' role credentials fresh in an expiry-aware manner while the SSO token is valid, and sends a desktop notification when an interactive browser login is required — the daemon never opens a browser itself. The TUI attaches to the daemon over the socket for live state; any terminal that runs `ssomatic` while the daemon is up shows the live state.
+SSOmatic is a single-process TUI. While open it auto-refreshes the ⟳ (pinned) profiles' role credentials in an expiry-aware manner, and sends a desktop notification when an interactive SSO browser login is needed. No background process — quitting fully exits.
 
 ## Structure
 
@@ -20,21 +20,11 @@ ssomatic/
 │   │   ├── settings.test.ts
 │   │   ├── console.ts         # AWS console URL builders
 │   │   ├── console.test.ts
-│   │   ├── profileState.ts    # Profile state helpers
+│   │   ├── profileState.ts    # ProfileState types + local-state builder
+│   │   ├── refreshScheduler.ts # Expiry-aware refresh decision (decideAction)
 │   │   ├── aws.ts             # STS identity utilities
 │   │   ├── utils.ts           # Clipboard, JSON formatting
 │   │   └── utils.test.ts
-│   ├── daemon/                # Per-host background daemon (Unix-socket server + expiry-aware scheduler)
-│   │   ├── protocol.ts        # Wire protocol types + ndjson codec
-│   │   ├── protocol.test.ts
-│   │   ├── lifecycle.ts       # Single-instance lock + pid management
-│   │   ├── lifecycle.test.ts
-│   │   ├── scheduler.ts       # Expiry-aware refresh scheduler
-│   │   ├── scheduler.test.ts
-│   │   ├── server.ts          # Unix-socket daemon server
-│   │   ├── server.test.ts
-│   │   ├── client.ts          # Daemon socket client
-│   │   └── index.ts           # Daemon entry point
 │   └── cli/                   # Terminal UI (React/Ink)
 │       ├── index.tsx          # Entry point + argument router
 │       ├── args.ts            # CLI argument parsing
@@ -43,13 +33,12 @@ ssomatic/
 │       │   ├── status.ts      # `ssomatic status`
 │       │   ├── status.test.ts
 │       │   ├── export.ts      # `ssomatic export <profile>`
-│       │   ├── refresh.ts     # `ssomatic refresh [profile]`
-│       │   └── daemon.ts      # `ssomatic daemon start|stop|status`
+│       │   └── refresh.ts     # `ssomatic refresh [profile]`
 │       ├── tui/               # TUI screens
 │       │   ├── Dashboard.tsx  # Main profile list view
 │       │   ├── Details.tsx    # Profile detail view
 │       │   ├── Settings.tsx   # Settings screen
-│       │   └── useDaemon.ts   # Hook: connects TUI to the daemon socket
+│       │   └── useAutoRefresh.ts # Hook: in-process auto-refresh for ⟳ profiles
 │       ├── components/        # Shared Ink UI components
 │       │   ├── App.tsx        # Root container
 │       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
@@ -93,11 +82,9 @@ bun test              # Run unit tests
 
 ```bash
 ssomatic                        # Launch the interactive TUI
-ssomatic --daemon               # Launch the TUI and start the background daemon
 ssomatic status                 # Print profile statuses and exit
 ssomatic refresh [profile]      # Refresh a profile (or all favorites) now
 ssomatic export <profile>       # Print export AWS_* lines (use with eval $(ssomatic export <profile>))
-ssomatic daemon start|stop|status
 ssomatic --version
 ```
 
@@ -108,8 +95,7 @@ ssomatic --version
 | `↑` / `↓` / `k` / `j` | Move cursor |
 | `⏎` | Open details |
 | `r` | Refresh the current profile |
-| `a` | Toggle ⟳ auto-refresh (pin for the daemon) |
-| `b` | Run daemon in background |
+| `a` | Toggle ⟳ auto-refresh |
 | `c` | Copy export (`AWS_*` env vars) |
 | `y` | Copy profile name |
 | `o` | Open AWS console |

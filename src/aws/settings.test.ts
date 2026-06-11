@@ -23,8 +23,8 @@ test("loadSettings returns defaults when no file exists", async () => {
 
 test("saveSettings then loadSettings round-trips", async () => {
   const { loadSettings, saveSettings } = await import("./settings");
-  saveSettings({ notifications: false, refreshLeadMinutes: 10, autoStartDaemon: true, favoriteProfiles: ["prod", "dev"] });
-  expect(loadSettings()).toEqual({ notifications: false, refreshLeadMinutes: 10, autoStartDaemon: true, favoriteProfiles: ["prod", "dev"] });
+  saveSettings({ notifications: false, refreshLeadMinutes: 10, favoriteProfiles: ["prod", "dev"] });
+  expect(loadSettings()).toEqual({ notifications: false, refreshLeadMinutes: 10, favoriteProfiles: ["prod", "dev"] });
 });
 
 test("loadSettings migrates a legacy file with defaultInterval", async () => {
@@ -35,6 +35,16 @@ test("loadSettings migrates a legacy file with defaultInterval", async () => {
   const s = loadSettings();
   expect(s.favoriteProfiles).toEqual(["x"]);
   expect(s.refreshLeadMinutes).toBe(5);
-  expect(s.autoStartDaemon).toBe(false);
   expect("defaultInterval" in s).toBe(false);
+});
+
+test("loadSettings ignores unknown fields including autoStartDaemon", async () => {
+  const { loadSettings } = await import("./settings");
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  mkdirSync(join(home, ".aws"), { recursive: true });
+  writeFileSync(join(home, ".aws", "credentials-manager.json"), JSON.stringify({ notifications: false, autoStartDaemon: true, favoriteProfiles: ["y"] }));
+  const s = loadSettings();
+  expect(s.notifications).toBe(false);
+  expect(s.favoriteProfiles).toEqual(["y"]);
+  expect("autoStartDaemon" in s).toBe(false);
 });

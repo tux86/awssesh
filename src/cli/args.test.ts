@@ -1,8 +1,7 @@
 import { test, expect } from "bun:test";
 import { parseArgs } from "./args";
 
-test("no args → tui", () => { expect(parseArgs([])).toEqual({ kind: "tui", daemon: false }); });
-test("--daemon flag → tui with daemon", () => { expect(parseArgs(["--daemon"])).toEqual({ kind: "tui", daemon: true }); });
+test("no args → tui", () => { expect(parseArgs([])).toEqual({ kind: "tui" }); });
 test("--version → version", () => {
   expect(parseArgs(["--version"])).toEqual({ kind: "version" });
   expect(parseArgs(["-v"])).toEqual({ kind: "version" });
@@ -13,8 +12,7 @@ test("refresh optional profile", () => {
   expect(parseArgs(["refresh"])).toEqual({ kind: "refresh", profile: undefined });
   expect(parseArgs(["refresh", "dev"])).toEqual({ kind: "refresh", profile: "dev" });
 });
-test("daemon subcommands", () => {
-  expect(parseArgs(["daemon", "start"])).toEqual({ kind: "daemon", sub: "start" });
-  expect(parseArgs(["daemon"])).toEqual({ kind: "daemon", sub: undefined });
+test("unknown command → error", () => {
+  expect(parseArgs(["daemon"])).toEqual({ kind: "error", message: "unknown command: daemon" });
+  expect(parseArgs(["foobar"])).toEqual({ kind: "error", message: "unknown command: foobar" });
 });
-test("internal __daemon command", () => { expect(parseArgs(["__daemon"])).toEqual({ kind: "__daemon" }); });
