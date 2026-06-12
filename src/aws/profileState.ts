@@ -15,7 +15,7 @@ export interface ProfileState {
 /**
  * Build the list of profile states from local disk (config + SSO token cache).
  * Shared by the CLI `status` command and the TUI root so there is a single
- * source of truth for the "no daemon" fallback view.
+ * source of truth for the locally-derived view.
  */
 export async function buildLocalProfileStates(): Promise<ProfileState[]> {
   const favorites = new Set(loadSettings().favoriteProfiles);

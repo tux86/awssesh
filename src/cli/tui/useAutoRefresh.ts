@@ -25,11 +25,10 @@ export interface AutoRefreshView {
  * In-process auto-refresh for the TUI. While the dashboard is open it keeps the
  * ⟳ (favorite) profiles fresh: every tick it decides, per favorite, whether the
  * cached role credentials are due for a silent refresh and performs it,
- * expiry-aware. Replaces the old background daemon — no sockets, no detach.
+ * expiry-aware — entirely in-process, no background process or sockets.
  *
- * Ported from the daemon's `computeState`: SSO-token validity comes from the
- * cache file, role-cred expiry is tracked in a ref-held Map, and a notify-once
- * set drives the optional `onNeedsLogin` callback.
+ * SSO-token validity comes from the cache file, role-cred expiry is tracked in a
+ * ref-held Map, and a notify-once set drives the optional `onNeedsLogin` callback.
  */
 export function useAutoRefresh(
   settings: AppSettings,

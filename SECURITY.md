@@ -10,11 +10,7 @@ We will acknowledge your report within 48 hours and aim to provide a fix within 
 
 ## Scope
 
-This policy applies to all packages:
-
-- `@ssomatic/core`
-- `@ssomatic/cli`
-- `@ssomatic/web`
+This policy applies to the [`ssomatic`](https://www.npmjs.com/package/ssomatic) npm package.
 
 ## Best Practices
 
