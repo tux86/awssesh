@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * SSOmatic - Interactive TUI for managing AWS SSO credentials
+ * awssesh - Interactive TUI for managing AWS SSO credentials
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -176,7 +176,7 @@ function LoginPrompt({ profile, deviceAuth, authError = false, copied = false, a
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SSOmatic() {
+function Awssesh() {
   const { exit } = useApp();
 
   const [view, setView] = useState<ViewState>("dashboard");
@@ -382,7 +382,7 @@ function SSOmatic() {
   // Loading / seeding state.
   if (seeding && profiles.length === 0) {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
+      <App title={`awssesh v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <Spinner label="Discovering SSO profiles..." />
       </App>
     );
@@ -391,7 +391,7 @@ function SSOmatic() {
   // No profiles found.
   if (!seeding && ssoProfiles.length === 0 && profiles.length === 0) {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
+      <App title={`awssesh v${VERSION}`} icon="🔐" color="cyan" actions={[ACTIONS.quit]} captureQuit onQuit={() => exit()}>
         <StatusMessage type="error">No SSO profiles found in ~/.aws/config</StatusMessage>
       </App>
     );
@@ -400,7 +400,7 @@ function SSOmatic() {
   // Login overlay takes precedence over the active view.
   if (pendingLogin) {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" onQuit={() => exit()}>
+      <App title={`awssesh v${VERSION}`} icon="🔐" color="cyan" onQuit={() => exit()}>
         <LoginPrompt
           profile={pendingLogin}
           deviceAuth={deviceAuth}
@@ -414,7 +414,7 @@ function SSOmatic() {
 
   if (view === "settings") {
     return (
-      <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
+      <App title={`awssesh v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
         <Settings settings={settings} onChange={handleSettingsChange} onBack={() => setView("dashboard")} />
       </App>
     );
@@ -425,7 +425,7 @@ function SSOmatic() {
     if (profile) {
       const sso = findProfile(detailName);
       return (
-        <App title={`SSOmatic v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
+        <App title={`awssesh v${VERSION}`} icon="🔐" color="cyan" statusItems={statusItems} onQuit={() => exit()}>
           <Details
             profile={profile}
             arn={sso?.ssoRoleName}
@@ -440,7 +440,7 @@ function SSOmatic() {
 
   return (
     <App
-      title={`SSOmatic v${VERSION}`}
+      title={`awssesh v${VERSION}`}
       icon="🔐"
       color="cyan"
       statusItems={statusItems}
@@ -465,18 +465,18 @@ function SSOmatic() {
 // Entry Point
 // ─────────────────────────────────────────────────────────────────────────────
 
-const HELP = `ssomatic — interactive AWS SSO credential manager
+const HELP = `awssesh — interactive AWS SSO credential manager
 
 Usage:
-  ssomatic                 launch the interactive TUI
-  ssomatic status          print profile statuses and exit
-  ssomatic refresh [name]  refresh a profile (or all favorites) now
-  ssomatic export <name>   print export AWS_* lines for eval $(...)
-  ssomatic --version
+  awssesh                 launch the interactive TUI
+  awssesh status          print profile statuses and exit
+  awssesh refresh [name]  refresh a profile (or all favorites) now
+  awssesh export <name>   print export AWS_* lines for eval $(...)
+  awssesh --version
 `;
 
 async function launchTui(): Promise<void> {
-  const instance = renderApp(<SSOmatic />);
+  const instance = renderApp(<Awssesh />);
   // Always terminate promptly on quit; the in-process auto-refresh interval is
   // cleared on unmount, so there are no lingering handles.
   await instance.waitUntilExit();
@@ -487,7 +487,7 @@ async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   switch (parsed.kind) {
     case "version":
-      process.stdout.write(`ssomatic v${VERSION}\n`);
+      process.stdout.write(`awssesh v${VERSION}\n`);
       return;
     case "help":
       process.stdout.write(HELP);

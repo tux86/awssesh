@@ -15,7 +15,7 @@ export function buildExportBlock(creds: {
 export function buildFederationSigninUrl(signinToken: string, destination = "https://console.aws.amazon.com/"): string {
   const params = new URLSearchParams({
     Action: "login",
-    Issuer: "ssomatic",
+    Issuer: "awssesh",
     Destination: destination,
     SigninToken: signinToken,
   });

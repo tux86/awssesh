@@ -1,4 +1,4 @@
-# SSOmatic demo recording (VHS — https://github.com/charmbracelet/vhs)
+# awssesh demo recording (VHS — https://github.com/charmbracelet/vhs)
 #
 # Regenerate with:  bun run demo   (builds, generates the fixture, records)
 # or manually:      bun run build && bun scripts/demo/fixture.ts && vhs scripts/demo/demo.tape
@@ -6,10 +6,10 @@
 # No custom theme or effects: VHS's default neutral dark terminal renders the
 # app's own ANSI colors, so the GIF looks exactly like a real run.
 #
-# SSOMATIC_DEMO=1 stubs the interactive SSO network calls (device-auth +
+# AWSSESH_DEMO=1 stubs the interactive SSO network calls (device-auth +
 # silent refresh) with canned values, so the login screen and the ⟳ auto-refresh
 # render offline from the mock ~/.aws sandbox. The displayed command is the real
-# `npx ssomatic` users run; a shell function shadows it to the local build.
+# `npx awssesh` users run; a shell function shadows it to the local build.
 
 Output docs/screenshots/cli-demo.gif
 
@@ -20,9 +20,9 @@ Set Height 760
 Set Padding 20
 
 # ── Off-camera setup: mock sandbox HOME, demo stubs, offline update check, and
-#    shadow `npx` so the on-screen `npx ssomatic` runs the freshly built binary.
+#    shadow `npx` so the on-screen `npx awssesh` runs the freshly built binary.
 Hide
-Type "export HOME=$PWD/docs/demo/home SSOMATIC_DEMO=1 NODE_USE_ENV_PROXY=1 https_proxy=http://127.0.0.1:9"
+Type "export HOME=$PWD/docs/demo/home AWSSESH_DEMO=1 NODE_USE_ENV_PROXY=1 https_proxy=http://127.0.0.1:9"
 Enter
 Type "npx() { node $PWD/dist/cli.js; }"
 Enter
@@ -31,7 +31,7 @@ Enter
 Show
 
 # ── Launch the dashboard ─────────────────────────────────────────────────────
-Type "npx ssomatic"
+Type "npx awssesh"
 Enter
 Sleep 2.5s
 

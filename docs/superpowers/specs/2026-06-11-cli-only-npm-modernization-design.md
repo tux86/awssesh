@@ -1,12 +1,12 @@
-# SSOmatic v2 — CLI-only, npm, KISS — Design
+# awssesh v2 — CLI-only, npm, KISS — Design
 
 **Date:** 2026-06-11
 **Status:** Approved (design phase)
 
 ## Goal
 
-Simplify SSOmatic (KISS) into a professional public GitHub project:
-**interactive CLI only** (drop the web layer), distributed via **npm** (`npx ssomatic`),
+Simplify awssesh (KISS) into a professional public GitHub project:
+**interactive CLI only** (drop the web layer), distributed via **npm** (`npx awssesh`),
 **runtime-agnostic** code (Node + Bun), with **unit tests** on the AWS/SSO logic.
 
 No user-facing feature is removed: status, refresh/login, daemon (auto-refresh),
@@ -19,7 +19,7 @@ plumbing, packaging, and modernization.
 |----------|----------|
 | CLI form | Interactive TUI only (as today) |
 | Features | All kept (status, refresh/login, daemon, favorites + notifications) |
-| Distribution | npm — `npx ssomatic` / `bunx ssomatic` / `npm i -g ssomatic` |
+| Distribution | npm — `npx awssesh` / `bunx awssesh` / `npm i -g awssesh` |
 | Runtime | Node ≥ 18 **and** Bun (runtime-agnostic code) |
 | Tests | Unit tests on AWS/SSO logic (`bun test`), no TUI tests |
 
@@ -60,7 +60,7 @@ src/
 ## 2. Runtime-agnostic code (Node + Bun)
 
 The ~9 Bun-specific calls in `src/aws/sso.ts` are replaced with standard Node APIs
-so that `npx ssomatic` (which runs under Node) works:
+so that `npx awssesh` (which runs under Node) works:
 
 | Bun (current) | Node replacement |
 |---------------|------------------|
@@ -83,7 +83,7 @@ The result runs under **Node ≥ 18 and Bun**. `src/aws/utils.ts` already uses
 ### `package.json`
 - `"private": true` → **removed**
 - Added:
-  - `"bin": { "ssomatic": "dist/cli.js" }`
+  - `"bin": { "awssesh": "dist/cli.js" }`
   - `"files": ["dist"]`
   - `"engines": { "node": ">=18" }`
 - Build output carries the `#!/usr/bin/env node` shebang
@@ -122,9 +122,9 @@ bun build src/cli/index.tsx --target node --outfile dist/cli.js
 
 ### Final usage
 ```bash
-npx ssomatic          # zero install
-bunx ssomatic
-npm i -g ssomatic     # global install
+npx awssesh          # zero install
+bunx awssesh
+npm i -g awssesh     # global install
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug in SSOmatic
+about: Report a bug in awssesh
 title: "[bug] "
 labels: bug
 ---

@@ -6,7 +6,7 @@
  * account or live calls. Timestamps are stamped fresh on every run so the
  * "expires" countdowns are accurate at record time.
  *
- * SSOmatic derives a profile's state purely from local disk:
+ * awssesh derives a profile's state purely from local disk:
  *   - discoverProfiles()    reads ~/.aws/config
  *   - findCachedToken()     reads ~/.aws/sso/cache/<sha1(session)>.json
  *   - buildLocalProfileStates(): valid (future-dated token) | needs-login (no token)

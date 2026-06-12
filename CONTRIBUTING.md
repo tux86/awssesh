@@ -1,4 +1,4 @@
-# Contributing to SSOmatic
+# Contributing to awssesh
 
 Thank you for your interest in contributing! This guide will help you get started.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 ## Development Setup
 
 ```bash
-git clone https://github.com/tux86/ssomatic.git
-cd ssomatic
+git clone https://github.com/tux86/awssesh.git
+cd awssesh
 bun install
 
 # Run the CLI from source
@@ -31,7 +31,7 @@ bun test
 ## Project Structure
 
 ```
-ssomatic/
+awssesh/
 ├── src/
 │   ├── aws/           # AWS credential logic (sso.ts, aws.ts, utils.ts) + unit tests
 │   └── cli/           # Terminal UI (React/Ink) + entry point
@@ -83,4 +83,4 @@ bun run build
 
 ## Questions?
 
-Open an [issue](https://github.com/tux86/ssomatic/issues) or start a [discussion](https://github.com/tux86/ssomatic/discussions).
+Open an [issue](https://github.com/tux86/awssesh/issues) or start a [discussion](https://github.com/tux86/awssesh/discussions).
