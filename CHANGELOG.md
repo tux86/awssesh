@@ -15,6 +15,17 @@ replaced by npm (npx awssesh / npm i -g awssesh).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/awssesh/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/awssesh/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [2.0.0](https://github.com/tux86/awssesh/compare/v1.4.0...v2.0.0) (2026-06-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* the npm package and CLI command are renamed from `ssomatic` to `awssesh`. Use `npx awssesh` (or reinstall with `npm i -g awssesh`); the `ssomatic` package is no longer published.
+
+### Features
+
+* rename project to awssesh ([986aea7](https://github.com/tux86/awssesh/commit/986aea73f7424e99ea5c60a4180c1fbca7fee9eb))
+
 ## [1.4.0](https://github.com/tux86/awssesh/compare/v1.3.1...v1.4.0) (2026-06-11)
 
 
