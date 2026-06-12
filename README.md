@@ -22,7 +22,6 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 
 ## Demo
 
-<!-- TODO: re-record demo GIF for the v2 dashboard -->
 <p align="center">
   <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
 </p>

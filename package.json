@@ -38,6 +38,7 @@
     "build": "bun build src/cli/index.tsx --target node --packages external --outfile dist/cli.js",
     "lint": "eslint src",
     "test": "bun test",
+    "demo": "bun run build && bun scripts/demo/fixture.ts && vhs scripts/demo/demo.tape",
     "prepack": "bun run build",
     "prepare": "husky"
   },

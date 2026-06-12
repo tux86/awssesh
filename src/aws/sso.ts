@@ -78,6 +78,14 @@ export const CONFIG_PATH = `${AWS_DIR}/config`;
 export const CREDENTIALS_PATH = `${AWS_DIR}/credentials`;
 export const SSO_CACHE_DIR = `${AWS_DIR}/sso/cache`;
 
+/**
+ * Demo recording mode. When `SSOMATIC_DEMO` is set, the interactive SSO network
+ * calls are stubbed with canned values so the README demo GIF (scripts/demo/)
+ * can show the device-login screen and the silent auto-refresh using mock data,
+ * fully offline. Inert for real users — has no effect unless the env var is set.
+ */
+const DEMO = !!process.env.SSOMATIC_DEMO;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // File Utilities
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,6 +207,17 @@ export async function checkAllProfiles(profiles: SSOProfile[]): Promise<ProfileS
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function startDeviceAuthorization(profile: SSOProfile): Promise<DeviceAuthInfo | null> {
+  if (DEMO) {
+    return {
+      verificationUri: `https://device.sso.${profile.ssoRegion}.amazonaws.com/`,
+      userCode: "BRWS-DEMO",
+      deviceCode: "demo-device-code",
+      clientId: "demo-client",
+      clientSecret: "demo-secret",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      interval: 5,
+    };
+  }
   try {
     const client = new SSOOIDCClient({ region: profile.ssoRegion });
 
@@ -265,6 +284,12 @@ export async function pollForToken(
   profile: SSOProfile,
   deviceAuth: DeviceAuthInfo
 ): Promise<TokenInfo | null> {
+  if (DEMO) {
+    // Stay pending: the recording shows the URL/code screen, then Esc cancels.
+    return new Promise<TokenInfo | null>(() => {
+      /* never resolves in demo mode */
+    });
+  }
   const client = new SSOOIDCClient({ region: profile.ssoRegion });
   const startTime = Date.now();
   const maxWaitMs = deviceAuth.expiresAt.getTime() - Date.now();
@@ -364,6 +389,12 @@ export async function refreshProfile(
   const cachedToken = await findCachedToken(profile);
   if (!cachedToken || cachedToken.expiresAt <= new Date()) {
     return { success: false, needsLogin: true };
+  }
+
+  if (DEMO) {
+    // Pretend the silent refresh succeeded so the auto-refresh tick stays
+    // offline and the ⟳ favorites keep their valid state during recording.
+    return { success: true, expiresAt: new Date(Date.now() + 50 * 60 * 1000) };
   }
 
   const credentials = await getCredentialsWithToken(profile, cachedToken.accessToken);
