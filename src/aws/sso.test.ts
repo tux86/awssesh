@@ -7,7 +7,7 @@ let TMP: string;
 let sso: typeof import("./sso.ts");
 
 beforeAll(async () => {
-  TMP = await mkdtemp(join(tmpdir(), "ssomatic-test-"));
+  TMP = await mkdtemp(join(tmpdir(), "awssesh-test-"));
   process.env.HOME = TMP;
   process.env.USERPROFILE = TMP;
   sso = await import("./sso.ts");

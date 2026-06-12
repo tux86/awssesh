@@ -7,7 +7,7 @@ import pkg from "../package.json";
 
 export const VERSION = pkg.version;
 
-const GITHUB_REPO = "tux86/ssomatic";
+const GITHUB_REPO = "tux86/awssesh";
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 
 let cachedLatest: string | null = null;

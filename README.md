@@ -1,20 +1,20 @@
-# SSOmatic
+# awssesh
 
 Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard that auto-refreshes your pinned profiles while it's open.
 
-[![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
-[![CI](https://github.com/tux86/ssomatic/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/ssomatic/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/awssesh)](https://www.npmjs.com/package/awssesh)
+[![CI](https://github.com/tux86/awssesh/actions/workflows/ci.yml/badge.svg)](https://github.com/tux86/awssesh/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 ---
 
-## Why SSOmatic
+## Why awssesh
 
 - **k9s-style list-first dashboard** — all your SSO profiles at a glance with live expiry countdowns; navigate with j/k or arrow keys, no menus to dig through.
 - **In-process auto-refresh for ⟳ pinned profiles** — pin a profile with `a` and expiry-aware refresh keeps its credentials ready before they expire, with no fixed-interval polling waste.
-- **Notify-on-login, never surprise you** — when an interactive SSO login is required SSOmatic sends a desktop notification so you know to log in.
+- **Notify-on-login, never surprise you** — when an interactive SSO login is required awssesh sends a desktop notification so you know to log in.
 - **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
 - **Single process, clean exit** — quitting fully exits. No background processes to manage.
 
@@ -23,7 +23,7 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 ## Demo
 
 <p align="center">
-  <img src="docs/screenshots/cli-demo.gif" alt="SSOmatic CLI Demo" width="720">
+  <img src="docs/screenshots/cli-demo.gif" alt="awssesh CLI Demo" width="720">
 </p>
 
 ---
@@ -32,11 +32,11 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 
 ```bash
 # Run without installing
-npx ssomatic
-bunx ssomatic
+npx awssesh
+bunx awssesh
 
 # Or install globally
-npm install -g ssomatic
+npm install -g awssesh
 ```
 
 ---
@@ -45,14 +45,14 @@ npm install -g ssomatic
 
 ```bash
 # 1. Launch the dashboard
-ssomatic
+awssesh
 
 # 2. Navigate to a profile and press 'a' to pin it for auto-refresh
-# 3. SSOmatic auto-refreshes pinned profiles while the dashboard is open
+# 3. awssesh auto-refreshes pinned profiles while the dashboard is open
 # 4. Press 'q' to quit when done
 ```
 
-While the dashboard is open, ⟳ pinned profiles are refreshed automatically when their credentials are close to expiry. When a browser login is required, you get a desktop notification and can log in directly from the TUI or with `ssomatic refresh <profile>`.
+While the dashboard is open, ⟳ pinned profiles are refreshed automatically when their credentials are close to expiry. When a browser login is required, you get a desktop notification and can log in directly from the TUI or with `awssesh refresh <profile>`.
 
 ---
 
@@ -60,16 +60,16 @@ While the dashboard is open, ⟳ pinned profiles are refreshed automatically whe
 
 | Command | Description |
 |---------|-------------|
-| `ssomatic` | Launch the interactive TUI |
-| `ssomatic status` | Print profile statuses and exit |
-| `ssomatic refresh [name]` | Refresh a profile (or all favorites) now |
-| `ssomatic export <name>` | Print `export AWS_*` lines for `eval $(...)` |
-| `ssomatic --version` | Print version and exit |
+| `awssesh` | Launch the interactive TUI |
+| `awssesh status` | Print profile statuses and exit |
+| `awssesh refresh [name]` | Refresh a profile (or all favorites) now |
+| `awssesh export <name>` | Print `export AWS_*` lines for `eval $(...)` |
+| `awssesh --version` | Print version and exit |
 
 **Shell trick — inject credentials into your current shell:**
 
 ```bash
-eval $(ssomatic export prod)
+eval $(awssesh export prod)
 ```
 
 ---
@@ -94,9 +94,9 @@ eval $(ssomatic export prod)
 
 ## How Auto-Refresh Works
 
-SSOmatic tracks the role-credential expiry for each ⟳ pinned profile and refreshes only when the credentials are within the lead window of expiring (default: 5 minutes before expiry). No fixed interval; no wasted refreshes.
+awssesh tracks the role-credential expiry for each ⟳ pinned profile and refreshes only when the credentials are within the lead window of expiring (default: 5 minutes before expiry). No fixed interval; no wasted refreshes.
 
-When an interactive SSO login is needed, a desktop notification is sent (`SSOmatic: <profile> needs login`). You authorize by logging in from the TUI or with `ssomatic refresh <profile>`.
+When an interactive SSO login is needed, a desktop notification is sent (`awssesh: <profile> needs login`). You authorize by logging in from the TUI or with `awssesh refresh <profile>`.
 
 ---
 
@@ -111,8 +111,8 @@ When an interactive SSO login is needed, a desktop notification is sent (`SSOmat
 Requires [Bun](https://bun.sh) >= 1.0.
 
 ```bash
-git clone https://github.com/tux86/ssomatic.git
-cd ssomatic
+git clone https://github.com/tux86/awssesh.git
+cd awssesh
 bun install
 
 bun run start    # Run from source

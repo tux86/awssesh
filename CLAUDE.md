@@ -2,16 +2,16 @@
 
 ## Project Overview
 
-**SSOmatic** — Interactive AWS SSO credential manager — a terminal CLI built with Bun + React + Ink.
+**awssesh** — Interactive AWS SSO credential manager — a terminal CLI built with Bun + React + Ink.
 
-Distributed via npm (`npx ssomatic`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
+Distributed via npm (`npx awssesh`). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
-SSOmatic is a single-process TUI. While open it auto-refreshes the ⟳ (pinned) profiles' role credentials in an expiry-aware manner, and sends a desktop notification when an interactive SSO browser login is needed. No background process — quitting fully exits.
+awssesh is a single-process TUI. While open it auto-refreshes the ⟳ (pinned) profiles' role credentials in an expiry-aware manner, and sends a desktop notification when an interactive SSO browser login is needed. No background process — quitting fully exits.
 
 ## Structure
 
 ```
-ssomatic/
+awssesh/
 ├── src/
 │   ├── aws/                   # Shared AWS logic (UI-agnostic)
 │   │   ├── sso.ts             # SSO profiles, tokens, refresh
@@ -30,10 +30,10 @@ ssomatic/
 │       ├── args.ts            # CLI argument parsing
 │       ├── args.test.ts
 │       ├── commands/          # Non-TUI subcommands
-│       │   ├── status.ts      # `ssomatic status`
+│       │   ├── status.ts      # `awssesh status`
 │       │   ├── status.test.ts
-│       │   ├── export.ts      # `ssomatic export <profile>`
-│       │   └── refresh.ts     # `ssomatic refresh [profile]`
+│       │   ├── export.ts      # `awssesh export <profile>`
+│       │   └── refresh.ts     # `awssesh refresh [profile]`
 │       ├── tui/               # TUI screens
 │       │   ├── Dashboard.tsx  # Main profile list view
 │       │   ├── Details.tsx    # Profile detail view
@@ -81,11 +81,11 @@ bun test              # Run unit tests
 ### Runtime CLI subcommands
 
 ```bash
-ssomatic                        # Launch the interactive TUI
-ssomatic status                 # Print profile statuses and exit
-ssomatic refresh [profile]      # Refresh a profile (or all favorites) now
-ssomatic export <profile>       # Print export AWS_* lines (use with eval $(ssomatic export <profile>))
-ssomatic --version
+awssesh                        # Launch the interactive TUI
+awssesh status                 # Print profile statuses and exit
+awssesh refresh [profile]      # Refresh a profile (or all favorites) now
+awssesh export <profile>       # Print export AWS_* lines (use with eval $(awssesh export <profile>))
+awssesh --version
 ```
 
 ## Keyboard Shortcuts (Dashboard)

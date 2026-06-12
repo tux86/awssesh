@@ -1,10 +1,10 @@
-# SSOmatic v2 — CLI-only, npm, KISS — Implementation Plan
+# awssesh v2 — CLI-only, npm, KISS — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn SSOmatic into a professional, KISS, CLI-only tool distributed via npm — by removing the web layer, making the code runtime-agnostic (Node + Bun), adding unit tests, and modernizing packaging/CI/docs.
+**Goal:** Turn awssesh into a professional, KISS, CLI-only tool distributed via npm — by removing the web layer, making the code runtime-agnostic (Node + Bun), adding unit tests, and modernizing packaging/CI/docs.
 
-**Architecture:** Keep the existing `src/aws/` (UI-agnostic logic) ↔ `src/cli/` (Ink TUI) split. Delete `src/web/` and its toolchain. Replace Bun-only file/process APIs in `src/aws/sso.ts` with `node:fs/promises` + `node:child_process` so `npx ssomatic` runs under Node. Build a single `dist/cli.js` with `bun build --target node`, ship it as an npm `bin`, and publish via the existing semantic-release pipeline.
+**Architecture:** Keep the existing `src/aws/` (UI-agnostic logic) ↔ `src/cli/` (Ink TUI) split. Delete `src/web/` and its toolchain. Replace Bun-only file/process APIs in `src/aws/sso.ts` with `node:fs/promises` + `node:child_process` so `npx awssesh` runs under Node. Build a single `dist/cli.js` with `bun build --target node`, ship it as an npm `bin`, and publish via the existing semantic-release pipeline.
 
 **Tech Stack:** Bun (dev runtime + test runner + bundler), TypeScript, React + Ink (TUI), AWS SDK v3, semantic-release.
 
@@ -454,7 +454,7 @@ let TMP: string;
 let sso: typeof import("./sso.ts");
 
 beforeAll(async () => {
-  TMP = await mkdtemp(join(tmpdir(), "ssomatic-test-"));
+  TMP = await mkdtemp(join(tmpdir(), "awssesh-test-"));
   process.env.HOME = TMP;
   process.env.USERPROFILE = TMP;
   sso = await import("./sso.ts");
@@ -815,7 +815,7 @@ Add these top-level fields (place near `"license"`):
 
 ```json
   "type": "module",
-  "bin": { "ssomatic": "dist/cli.js" },
+  "bin": { "awssesh": "dist/cli.js" },
   "files": ["dist"],
   "engines": { "node": ">=18" },
 ```
@@ -841,12 +841,12 @@ and re-run `bun run build`, then re-check `head -1 dist/cli.js`.
 - [ ] **Step 4: Smoke-test under plain Node**
 
 Run: `node dist/cli.js --version`
-Expected: prints `ssomatic v<version>` and exits 0 (proves the runtime refactor works without Bun).
+Expected: prints `awssesh v<version>` and exits 0 (proves the runtime refactor works without Bun).
 
 - [ ] **Step 5: Smoke-test the bin link locally**
 
 Run: `chmod +x dist/cli.js && ./dist/cli.js --version`
-Expected: prints `ssomatic v<version>`.
+Expected: prints `awssesh v<version>`.
 
 - [ ] **Step 6: Commit**
 
@@ -895,8 +895,8 @@ Replace the `Build` and `Verify output` steps:
 
       - name: Verify output
         run: |
-          test -f dist/ssomatic
-          ls -lh dist/ssomatic
+          test -f dist/awssesh
+          ls -lh dist/awssesh
 ```
 
 with a test + build + Node-runnable check:
@@ -937,7 +937,7 @@ to:
           HUSKY: "0"
 ```
 
-Then delete the entire `build:` job (the OS matrix that renames/uploads `ssomatic-*` binaries) and the entire `update-homebrew:` job. Also delete the now-unused `outputs:`/`Check if released` plumbing that only fed those jobs:
+Then delete the entire `build:` job (the OS matrix that renames/uploads `awssesh-*` binaries) and the entire `update-homebrew:` job. Also delete the now-unused `outputs:`/`Check if released` plumbing that only fed those jobs:
 
 - Remove the `outputs:` block under the `release:` job.
 - Remove the `- name: Check if released` step (the `id: version` step).
@@ -1019,19 +1019,19 @@ Add a `"keywords"` field:
 
 ```bash
 # Run without installing
-npx ssomatic
-bunx ssomatic
+npx awssesh
+bunx awssesh
 
 # Or install globally
-npm install -g ssomatic
+npm install -g awssesh
 ```
 ```
 
 - Add an npm badge to the badge block:
 
 ```markdown
-[![npm version](https://img.shields.io/npm/v/ssomatic)](https://www.npmjs.com/package/ssomatic)
-[![npm downloads](https://img.shields.io/npm/dm/ssomatic)](https://www.npmjs.com/package/ssomatic)
+[![npm version](https://img.shields.io/npm/v/awssesh)](https://www.npmjs.com/package/awssesh)
+[![npm downloads](https://img.shields.io/npm/dm/awssesh)](https://www.npmjs.com/package/awssesh)
 ```
 
 - Remove any "press `w` to toggle web" mention and the `w` row from the keyboard-shortcuts table.
@@ -1045,7 +1045,7 @@ git rm docs/screenshots/web-demo.gif 2>/dev/null || true
 - [ ] **Step 4: Update `CLAUDE.md`**
 
 - In **Project Overview**, change to: "Interactive AWS SSO credential manager — a terminal CLI built with Bun + React + Ink." Remove the "Press `w` to toggle a built-in web server" sentence.
-- In **Structure**, delete the `src/web/` subtree and the `dist/ssomatic` line; show `dist/cli.js` and `src/aws/*.test.ts`.
+- In **Structure**, delete the `src/web/` subtree and the `dist/awssesh` line; show `dist/cli.js` and `src/aws/*.test.ts`.
 - In **Tech Stack**, remove the Vite and Tailwind rows.
 - In **Commands**, update `build` to "Build the Node CLI bundle (`dist/cli.js`)" and add `bun test`.
 - In **Keyboard Shortcuts**, remove the `w` row.

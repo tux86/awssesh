@@ -1,5 +1,5 @@
 /**
- * SSOmatic - Core business logic (UI-agnostic)
+ * awssesh - Core business logic (UI-agnostic)
  * Used by the CLI (Ink) interface
  */
 
@@ -79,12 +79,12 @@ export const CREDENTIALS_PATH = `${AWS_DIR}/credentials`;
 export const SSO_CACHE_DIR = `${AWS_DIR}/sso/cache`;
 
 /**
- * Demo recording mode. When `SSOMATIC_DEMO` is set, the interactive SSO network
+ * Demo recording mode. When `AWSSESH_DEMO` is set, the interactive SSO network
  * calls are stubbed with canned values so the README demo GIF (scripts/demo/)
  * can show the device-login screen and the silent auto-refresh using mock data,
  * fully offline. Inert for real users — has no effect unless the env var is set.
  */
-const DEMO = !!process.env.SSOMATIC_DEMO;
+const DEMO = !!process.env.AWSSESH_DEMO;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File Utilities
@@ -223,7 +223,7 @@ export async function startDeviceAuthorization(profile: SSOProfile): Promise<Dev
 
     const registerResponse = await client.send(
       new RegisterClientCommand({
-        clientName: "ssomatic",
+        clientName: "awssesh",
         clientType: "public",
       })
     );

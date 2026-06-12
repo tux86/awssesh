@@ -12,7 +12,7 @@ export async function runExport(profileName: string): Promise<number> {
     process.stderr.write(
       `cannot export ${profileName}: ${
         result.needsLogin
-          ? `needs login (run: ssomatic refresh ${profileName})`
+          ? `needs login (run: awssesh refresh ${profileName})`
           : result.error
       }\n`
     );

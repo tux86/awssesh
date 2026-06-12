@@ -8,7 +8,7 @@ let prevHome: string | undefined;
 
 beforeEach(() => {
   prevHome = process.env.HOME;
-  home = mkdtempSync(join(tmpdir(), "ssomatic-settings-"));
+  home = mkdtempSync(join(tmpdir(), "awssesh-settings-"));
   process.env.HOME = home;
 });
 afterEach(() => {
