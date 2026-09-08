@@ -8,6 +8,7 @@ import { useNow } from "../hooks/useNow.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import {
   layoutColumns,
+  pad,
   tableWidth,
   viewport,
   W_ACCOUNT,
@@ -24,6 +25,7 @@ interface Props {
   onOpenConsole: (name: string) => void;
   onCopyExport: (name: string) => void;
   onCopyName: (name: string) => void;
+  onAddProfile: () => void;
   onOpenSettings: () => void;
   onQuit: () => void;
 }
@@ -39,6 +41,7 @@ const STATUS_COLOR: Record<ProfileStatusKind, string> = {
   refreshing: "cyan",
   expired: "yellow",
   "needs-login": "yellow",
+  "needs-mfa": "yellow",
   error: "red",
 };
 
@@ -47,19 +50,9 @@ const STATUS_LABEL: Record<ProfileStatusKind, string> = {
   refreshing: "◐ refreshing",
   expired: "○ expired",
   "needs-login": "⚠ needs-login",
+  "needs-mfa": "⚠ needs-mfa",
   error: "✗ error",
 };
-
-/**
- * Fit `s` into a `w`-wide cell, always leaving a one-column gutter so a
- * full-width value never butts straight up against the next column, and marking
- * a clipped value with an ellipsis rather than silently losing characters.
- */
-function pad(s: string, w: number): string {
-  const room = Math.max(1, w - 1);
-  const body = s.length > room ? s.slice(0, Math.max(0, room - 1)) + "…" : s;
-  return body + " ".repeat(Math.max(0, w - body.length));
-}
 
 /**
  * A single fixed-width cell, so columns never drift.
@@ -130,6 +123,7 @@ function Legend({ compact }: { compact: boolean }) {
         <Key k="c">copy env</Key>
         <Key k="y">name</Key>
         <Key k="o">console</Key>
+        <Key k="n">new</Key>
         <Key k="/">filter</Key>
         <Key k="s">settings</Key>
         <Key k="q">quit</Key>
@@ -148,6 +142,7 @@ function Help({ width }: { width: number }) {
     ["c", "copy AWS_* export lines to the clipboard"],
     ["y", "copy the profile name"],
     ["o", "open the AWS console in a browser"],
+    ["n", "add a profile from your SSO portal"],
     ["/", "filter profiles by name (Esc clears)"],
     ["s", "settings"],
     ["?", "close this help"],
@@ -232,6 +227,7 @@ export function Dashboard(props: Props) {
     else if (key.escape) setFilter("");
     else if (input === "?") setShowHelp(true);
     else if (input === "/") setFiltering(true);
+    else if (input === "n") props.onAddProfile();
     else if (input === "s") props.onOpenSettings();
     else if (input === "q") props.onQuit();
     else if (!current) return;
@@ -276,8 +272,11 @@ export function Dashboard(props: Props) {
         )}
 
         {visible.length === 0 && (
-          <Box marginY={1}>
+          <Box marginY={1} flexDirection="column">
             <Text dimColor>{filter ? `no profile matches “${filter}”` : "(no profiles)"}</Text>
+            {/* An empty ~/.aws/config used to be a dead end; the portal itself
+                knows which accounts you have, so offer to ask it. */}
+            {!filter && <Text dimColor>press n to add one from your SSO portal</Text>}
           </Box>
         )}
 

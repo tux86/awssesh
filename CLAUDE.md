@@ -4,6 +4,8 @@
 
 **awssesh** — Interactive AWS SSO credential manager — a terminal CLI built with Bun + React + Ink.
 
+It manages every `~/.aws/config` profile with a session that expires: SSO profiles, and `role_arn` + `source_profile` chains (with `mfa_serial` support). Credentials reach other tools three ways: the credentials file, `awssesh exec`, and `awssesh export --json` as a `credential_process`.
+
 Distributed via npm (`npx awssesh@latest` / `bunx awssesh@latest` — the `@latest` tag matters because `bunx` caches resolved packages and a bare `bunx awssesh` will keep running a stale one). Settings (favorites, notifications, refresh interval) are persisted across sessions.
 
 awssesh is a single-process TUI. While open it auto-refreshes the ⟳ (pinned) profiles' role credentials in an expiry-aware manner, and sends a desktop notification when an interactive SSO browser login is needed. No background process — quitting fully exits.
@@ -15,32 +17,44 @@ awssesh/
 ├── src/
 │   ├── version.ts             # VERSION + semver-aware update check
 │   ├── aws/                   # Shared AWS logic (UI-agnostic)
-│   │   ├── sso.ts             # SSO profiles, tokens, refresh
+│   │   ├── paths.ts           # ~/.aws file locations (resolved per call)
+│   │   ├── profiles.ts        # Profile union (sso | assume) + config read/write
+│   │   ├── credentials.ts     # Credential types + freshness
 │   │   ├── credentialsFile.ts # AWS-compatible ~/.aws/credentials read/write
+│   │   ├── sso.ts             # SSO token cache, device login, role credentials
+│   │   ├── assumeRole.ts      # sts:AssumeRole for chained profiles
+│   │   ├── refresh.ts         # ONE way in: refreshProfile / ensureCredentials
+│   │   ├── accounts.ts        # ListAccounts / ListAccountRoles (profile browser)
+│   │   ├── env.ts             # export block, credential_process JSON, exec env
 │   │   ├── settings.ts        # Persistent settings (favorites, notifications, lead)
 │   │   ├── console.ts         # AWS console URL builders
 │   │   ├── duration.ts        # Shared relative-time formatting
-│   │   ├── profileState.ts    # ProfileState types + local-state builder
+│   │   ├── profileState.ts    # ProfileState + local-state builder (chain aware)
 │   │   ├── refreshScheduler.ts # Expiry-aware refresh decision (decideAction)
 │   │   └── utils.ts           # Clipboard (multi-tool + OSC 52)
 │   └── cli/                   # Terminal UI (React/Ink)
 │       ├── index.tsx          # Entry point + argument router
 │       ├── args.ts            # CLI argument parsing
 │       ├── commands/          # Non-TUI subcommands
+│       │   ├── credentials.ts # Shared CLI credential path (login/MFA prompts)
 │       │   ├── status.ts      # `awssesh status`
-│       │   ├── export.ts      # `awssesh export <profile>`
+│       │   ├── export.ts      # `awssesh export <profile> [--json]`
+│       │   ├── exec.ts        # `awssesh exec <profile> -- <cmd>`
 │       │   └── refresh.ts     # `awssesh refresh [profile]`
 │       ├── tui/               # TUI screens
 │       │   ├── Dashboard.tsx  # Main profile list view
 │       │   ├── Details.tsx    # Profile detail view
 │       │   ├── Settings.tsx   # Settings screen
+│       │   ├── AccountBrowser.tsx # Add a profile from the SSO portal
 │       │   ├── LoginPrompt.tsx # SSO device-authorization screen
+│       │   ├── MfaPrompt.tsx  # MFA code entry for chained roles
 │       │   ├── columns.ts     # Responsive table layout + viewport maths
 │       │   ├── useDeviceAuth.ts  # Hook: one device-auth flow at a time
 │       │   └── useAutoRefresh.ts # Hook: in-process auto-refresh for ⟳ profiles
 │       ├── components/        # Shared Ink UI components
 │       │   ├── App.tsx        # Root container + responsive width
 │       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
+│       │   ├── SelectList.tsx # Filterable scrolling picker
 │       │   ├── KeyHint.tsx    # Key / KeyBar shortcut hints
 │       │   ├── Link.tsx       # OSC 8 clickable URLs
 │       │   ├── Wordmark.tsx
@@ -91,6 +105,8 @@ awssesh                        # Launch the interactive TUI
 awssesh status                 # Print profile statuses and exit
 awssesh refresh [profile]      # Refresh a profile (or all favorites) now
 awssesh export <profile>       # Print export AWS_* lines (use with eval $(awssesh export <profile>))
+awssesh export <profile> --json # Print credential_process JSON (for ~/.aws/config credential_process)
+awssesh exec <profile> -- <cmd> # Run a command with the profile's credentials in its env
 awssesh --version
 awssesh --help
 ```
@@ -114,6 +130,7 @@ awssesh --help
 | `c` | Copy export (`AWS_*` env vars) |
 | `y` | Copy profile name |
 | `o` | Open AWS console |
+| `n` | Add a profile from the SSO portal (accounts → roles → name) |
 | `/` | Filter profiles |
 | `g` / `G` | Jump to first / last profile |
 | `s` | Open settings |

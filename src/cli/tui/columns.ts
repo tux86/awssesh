@@ -68,3 +68,14 @@ export function tableWidth(layout: ColumnLayout): number {
     (layout.showAccount ? W_ACCOUNT : 0)
   );
 }
+
+/**
+ * Fit `s` into a `w`-wide cell, always leaving a one-column gutter so a
+ * full-width value never butts straight up against the next column, and marking
+ * a clipped value with an ellipsis rather than silently losing characters.
+ */
+export function pad(s: string, w: number): string {
+  const room = Math.max(1, w - 1);
+  const body = s.length > room ? s.slice(0, Math.max(0, room - 1)) + "…" : s;
+  return body + " ".repeat(Math.max(0, w - body.length));
+}

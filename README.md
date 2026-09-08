@@ -16,6 +16,9 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 - **In-process auto-refresh for ⟳ pinned profiles** — pin a profile with `a` and expiry-aware refresh keeps its credentials ready before they expire, with no fixed-interval polling waste.
 - **Notify-on-login, never surprise you** — when an interactive SSO login is required awssesh sends a desktop notification so you know to log in.
 - **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
+- **Credentials where your tools read them** — `awssesh exec` runs any command with the credentials in its environment, and `credential_process` lets every AWS SDK and the AWS CLI fetch them on their own.
+- **Add profiles without hand-editing config** — press `n` to browse the accounts and roles your SSO portal actually grants you, and awssesh writes the profile to `~/.aws/config`.
+- **Chained roles and MFA too** — `role_arn` + `source_profile` profiles are managed alongside SSO ones, prompting for an MFA code when `mfa_serial` calls for it.
 - **Single process, clean exit** — quitting fully exits. No background processes to manage.
 
 ---
@@ -68,14 +71,82 @@ While the dashboard is open, ⟳ pinned profiles are refreshed automatically whe
 | `awssesh status` | Print profile statuses and exit |
 | `awssesh refresh [name]` | Refresh a profile (or all favorites) now |
 | `awssesh export <name>` | Print `export AWS_*` lines for `eval $(...)` |
+| `awssesh export <name> --json` | Print the `credential_process` JSON payload |
+| `awssesh exec <name> -- <cmd>` | Run a command with the profile's credentials |
 | `awssesh --version` | Print version and exit |
 | `awssesh --help` | Show usage |
 
-**Shell trick — inject credentials into your current shell:**
+**Inject credentials into your current shell:**
 
 ```bash
 eval $(awssesh export prod)
 ```
+
+**Or keep them out of your shell entirely:**
+
+```bash
+awssesh exec prod -- terraform plan
+awssesh exec prod -- aws s3 ls
+```
+
+`exec` puts the credentials in the child process's environment and nowhere else —
+no `~/.aws/credentials` entry to go stale, no exported variables left behind in
+your shell. Its exit code is the command's.
+
+### Let your tools fetch credentials themselves
+
+Point a profile at awssesh with `credential_process` and every AWS SDK, the AWS
+CLI, Terraform and anything else that reads `~/.aws/config` gets fresh
+credentials on demand — including a chained or MFA-gated role:
+
+```ini
+# ~/.aws/config
+[profile prod-auto]
+credential_process = awssesh export prod --json
+region = eu-west-1
+```
+
+awssesh reuses cached credentials until they are close to expiring, so this
+costs a round trip only when there is something to renew. It never prompts:
+with no terminal attached it fails with a message telling you to run
+`awssesh refresh prod` once, interactively.
+
+---
+
+## Profiles awssesh manages
+
+Anything in `~/.aws/config` with a session to keep alive:
+
+```ini
+# an SSO profile
+[profile dev]
+sso_session = my-sso
+sso_account_id = 111111111111
+sso_role_name = Developer
+
+# a role chained off it — refreshed through dev, with no extra login
+[profile prod-admin]
+role_arn = arn:aws:iam::333333333333:role/Admin
+source_profile = dev
+
+# and one that wants an MFA code, which awssesh prompts for
+[profile prod-break-glass]
+role_arn = arn:aws:iam::333333333333:role/BreakGlass
+source_profile = dev
+mfa_serial = arn:aws:iam::333333333333:mfa/you
+```
+
+A chain can be any depth and can start from long-lived IAM keys in
+`~/.aws/credentials` instead of SSO — those never ask for a browser login.
+Profiles with nothing to refresh (plain IAM keys) are left out of the list.
+
+### Adding a profile
+
+Press `n` in the dashboard. awssesh asks your SSO portal which accounts and
+roles you actually have, you pick one, name it, and the profile is appended to
+`~/.aws/config` — the rest of the file, comments included, is left exactly as it
+was. This works from an empty config too, as long as it has an `[sso-session]`
+block.
 
 ---
 
@@ -91,6 +162,7 @@ eval $(awssesh export prod)
 | `c` | Copy `export AWS_*` to clipboard |
 | `y` | Copy profile name to clipboard |
 | `o` | Open AWS console in browser |
+| `n` | Add a profile from your SSO portal |
 | `/` | Filter profiles by name |
 | `s` | Open settings |
 | `?` | Show all keyboard shortcuts |
@@ -118,7 +190,9 @@ When an interactive SSO login is needed, a desktop notification is sent (`awsses
 
 ## Prerequisites
 
-- [AWS CLI v2](https://aws.amazon.com/cli/) configured with SSO profiles in `~/.aws/config`
+- SSO profiles (or at least an `[sso-session]` block) in `~/.aws/config` — the
+  [AWS CLI v2](https://aws.amazon.com/cli/) writes these with `aws configure sso`,
+  and awssesh shares its token cache, so a login in one counts for the other
 - A clipboard tool for `c` / `y` (`pbcopy`, `wl-copy`, `xclip`, `xsel`, or `clip.exe`). Over SSH,
   awssesh falls back to OSC 52 so copies land in your *local* clipboard.
 

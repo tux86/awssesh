@@ -10,6 +10,11 @@
  * formatting, since ~/.aws/credentials is frequently hand-maintained.
  */
 
+import { readFile, writeFile, mkdir, chmod } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { awsDir, credentialsPath } from "./paths.js";
+import type { AWSCredentials, StoredCredentials } from "./credentials.js";
+
 export interface CredentialEntry {
   [key: string]: string;
 }
@@ -56,17 +61,20 @@ export function parseCredentials(text: string): Record<string, CredentialEntry> 
 }
 
 /**
- * Insert or update `entries` under `[profile]`, leaving every other line —
- * other profiles, comments, blank lines, key order — exactly as it was.
+ * Insert or update `entries` under `[section]`, leaving every other line —
+ * other sections, comments, blank lines, key order — exactly as it was.
+ *
+ * `section` is the full bracket name, so this serves ~/.aws/credentials
+ * (`prod`) and ~/.aws/config (`profile prod`) alike.
  */
-export function upsertProfile(text: string, profile: string, entries: CredentialEntry): string {
+export function upsertProfile(text: string, section: string, entries: CredentialEntry): string {
   const lines = text.length === 0 ? [] : text.split("\n");
-  const header = `[${profile}]`;
+  const header = `[${section}]`;
 
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
-    const section = SECTION_RE.exec(lines[i]!);
-    if (section && section[1]!.trim() === profile) {
+    const found = SECTION_RE.exec(lines[i]!);
+    if (found && found[1]!.trim() === section) {
       start = i;
       break;
     }
@@ -112,3 +120,57 @@ function trimTrailingBlank(lines: string[]): string[] {
   while (end > 0 && lines[end - 1]!.trim() === "") end--;
   return lines.slice(0, end);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reading and writing the file itself
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Key used to persist when the role credentials stop working.
+ *
+ * The AWS parsers ignore keys they do not recognise, and `x_security_token_expires`
+ * is the de-facto name other SSO helpers (aws-vault, granted) already use for
+ * exactly this. Without it awssesh had no way to tell live credentials from
+ * hour-old dead ones, so it happily copied expired keys to the clipboard and
+ * reported success.
+ */
+export const EXPIRY_KEY = "x_security_token_expires";
+
+export async function writeCredentials(profileName: string, credentials: AWSCredentials): Promise<void> {
+  const existing = await readFile(credentialsPath(), "utf8").catch(() => "");
+
+  const next = upsertProfile(existing, profileName, {
+    aws_access_key_id: credentials.accessKeyId,
+    aws_secret_access_key: credentials.secretAccessKey,
+    ...(credentials.sessionToken && { aws_session_token: credentials.sessionToken }),
+    ...(credentials.expiration && { [EXPIRY_KEY]: credentials.expiration.toISOString() }),
+  });
+
+  await mkdir(awsDir(), { recursive: true });
+  await writeFile(credentialsPath(), next, { mode: 0o600 });
+  // `mode` only applies when the file is created, so enforce it on every write:
+  // these are live session credentials and must not be world-readable.
+  await chmod(credentialsPath(), 0o600).catch(() => {});
+}
+
+export function readProfileCredentials(profileName: string): StoredCredentials | null {
+  try {
+    const content = readFileSync(credentialsPath(), "utf8");
+    const section = parseCredentials(content)[profileName];
+    if (!section) return null;
+    const accessKeyId = section.aws_access_key_id;
+    const secretAccessKey = section.aws_secret_access_key;
+    if (!accessKeyId || !secretAccessKey) return null;
+
+    // Absent for credentials written by an older awssesh or by another tool;
+    // callers treat an unknown expiry as "assume stale and re-fetch".
+    const raw = section[EXPIRY_KEY];
+    const parsed = raw ? new Date(raw) : null;
+    const expiresAt = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+
+    return { accessKeyId, secretAccessKey, sessionToken: section.aws_session_token, expiresAt };
+  } catch {
+    return null;
+  }
+}
+

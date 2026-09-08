@@ -1,16 +1,18 @@
 import { test, expect, beforeAll, afterAll } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 let TMP: string;
 let sso: typeof import("./sso.ts");
+let sessionOf: typeof import("./profiles.ts")["sessionOf"];
 
 beforeAll(async () => {
   TMP = await mkdtemp(join(tmpdir(), "awssesh-test-"));
   process.env.HOME = TMP;
   process.env.USERPROFILE = TMP;
   sso = await import("./sso.ts");
+  ({ sessionOf } = await import("./profiles.ts"));
   await mkdir(join(TMP, ".aws"), { recursive: true });
 });
 
@@ -19,49 +21,13 @@ afterAll(async () => {
 });
 
 const DEV = {
+  kind: "sso" as const,
   name: "dev",
   ssoStartUrl: "https://example.awsapps.com/start",
   ssoAccountId: "111111111111",
   ssoRoleName: "Developer",
   ssoRegion: "us-east-1",
 };
-
-test("discoverProfiles parses sso-session and inline profiles", async () => {
-  await writeFile(
-    join(TMP, ".aws", "config"),
-    [
-      "[sso-session my-sso]",
-      "sso_start_url = https://example.awsapps.com/start",
-      "sso_region = us-east-1",
-      "",
-      "[profile dev]",
-      "sso_session = my-sso",
-      "sso_account_id = 111111111111",
-      "sso_role_name = Developer",
-      "region = eu-west-1",
-      "",
-      "[profile legacy]",
-      "sso_start_url = https://legacy.awsapps.com/start",
-      "sso_region = us-west-2",
-      "sso_account_id = 222222222222",
-      "sso_role_name = Admin",
-      "",
-    ].join("\n"),
-  );
-
-  const profiles = await sso.discoverProfiles();
-  expect(profiles).toHaveLength(2);
-
-  const dev = profiles.find((p) => p.name === "dev")!;
-  expect(dev.ssoStartUrl).toBe("https://example.awsapps.com/start");
-  expect(dev.ssoAccountId).toBe("111111111111");
-  expect(dev.ssoRegion).toBe("us-east-1");
-  expect(dev.ssoSession).toBe("my-sso");
-
-  const legacy = profiles.find((p) => p.name === "legacy")!;
-  expect(legacy.ssoRoleName).toBe("Admin");
-  expect(legacy.ssoRegion).toBe("us-west-2");
-});
 
 test("saveSettings / loadSettings round-trip", async () => {
   const { saveSettings, loadSettings } = await import("./settings");
@@ -74,16 +40,16 @@ test("saveSettings / loadSettings round-trip", async () => {
 
 test("token cache round-trips through disk", async () => {
   const future = new Date(Date.now() + 3_600_000);
-  await sso.saveSSOTokenToCache(DEV, { accessToken: "tok-123", expiresAt: future });
+  await sso.saveSSOTokenToCache(sessionOf(DEV), { accessToken: "tok-123", expiresAt: future });
 
-  const cached = await sso.findCachedToken(DEV);
+  const cached = await sso.findCachedToken(sessionOf(DEV));
   expect(cached?.accessToken).toBe("tok-123");
   expect(cached?.expiresAt.getTime()).toBe(future.getTime());
 });
 
 test("findCachedToken returns null when no token has been cached", async () => {
   const unknown = { ...DEV, ssoSession: "never-logged-in" };
-  expect(await sso.findCachedToken(unknown)).toBeNull();
+  expect(await sso.findCachedToken(sessionOf(unknown))).toBeNull();
 });
 
 

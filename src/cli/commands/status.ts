@@ -5,7 +5,7 @@ import { formatTimeLeft } from "../../aws/duration";
 const MARKER_WIDTH = 2;
 
 export function formatStatusTable(rows: ProfileState[], now: Date): string {
-  if (rows.length === 0) return "no SSO profiles found in ~/.aws/config";
+  if (rows.length === 0) return "no profiles found in ~/.aws/config";
 
   const nameW = Math.max(7, ...rows.map((r) => r.name.length));
   const statusW = Math.max(6, ...rows.map((r) => r.status.length));

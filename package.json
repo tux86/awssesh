@@ -46,6 +46,7 @@
   "dependencies": {
     "@aws-sdk/client-sso": "^3.1122.0",
     "@aws-sdk/client-sso-oidc": "^3.1122.0",
+    "@aws-sdk/client-sts": "^3.1127.0",
     "ini": "^7.0.0",
     "ink": "^7.1.1",
     "ink-spinner": "^5.0.0",

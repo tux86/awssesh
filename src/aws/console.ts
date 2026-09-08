@@ -1,16 +1,4 @@
-import type { AWSCredentials } from "./sso";
-
-export function buildExportBlock(creds: {
-  accessKeyId: string;
-  secretAccessKey: string;
-  sessionToken: string;
-}): string {
-  return [
-    `export AWS_ACCESS_KEY_ID=${creds.accessKeyId}`,
-    `export AWS_SECRET_ACCESS_KEY=${creds.secretAccessKey}`,
-    `export AWS_SESSION_TOKEN=${creds.sessionToken}`,
-  ].join("\n");
-}
+import type { AWSCredentials } from "./credentials.js";
 
 export function buildFederationSigninUrl(signinToken: string, destination = "https://console.aws.amazon.com/"): string {
   const params = new URLSearchParams({

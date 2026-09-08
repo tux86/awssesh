@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type DeviceAuthInfo,
-  type SSOProfile,
+  loginToSession,
   openBrowser,
-  performSSOLoginFlow,
   startDeviceAuthorization,
 } from "../../aws/sso.js";
+import type { SSOSession } from "../../aws/profiles.js";
 import { copyToClipboard } from "../../aws/utils.js";
 
 export interface LoginResult {
@@ -13,10 +13,16 @@ export interface LoginResult {
   error?: string;
 }
 
+/** What a login is for: a portal, plus what to call it on screen. */
+export interface LoginTarget {
+  session: SSOSession;
+  label: string;
+}
+
 export interface UseDeviceAuthOptions {
-  /** The profile awaiting an interactive login, or null when none is pending. */
-  pendingLogin: SSOProfile | null;
-  onLoginComplete: (profile: SSOProfile, result: LoginResult) => void;
+  /** The portal awaiting an interactive login, or null when none is pending. */
+  pendingLogin: LoginTarget | null;
+  onLoginComplete: (target: LoginTarget, result: LoginResult) => void;
 }
 
 export interface DeviceAuthView {
@@ -71,7 +77,7 @@ export function useDeviceAuth({ pendingLogin, onLoginComplete }: UseDeviceAuthOp
     if (!pendingLogin) return;
 
     void (async () => {
-      const info = await startDeviceAuthorization(pendingLogin);
+      const info = await startDeviceAuthorization(pendingLogin.session);
       if (!isCurrent()) return;
       if (!info) {
         setAuthError("Failed to start device authorization.");
@@ -81,8 +87,8 @@ export function useDeviceAuth({ pendingLogin, onLoginComplete }: UseDeviceAuthOp
       setDeviceAuth(info);
       setAuthorizing(true);
 
-      const result = await performSSOLoginFlow(pendingLogin, info);
-      if (!isCurrent()) return; // the user cancelled or switched profiles
+      const result = await loginToSession(pendingLogin.session, info);
+      if (!isCurrent()) return; // the user cancelled or switched targets
       setAuthorizing(false);
       onLoginComplete(pendingLogin, result);
     })();

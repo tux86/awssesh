@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { DeviceAuthInfo, SSOProfile } from "../../aws/sso.js";
+import type { DeviceAuthInfo } from "../../aws/sso.js";
 import { formatCountdown } from "../../aws/duration.js";
 import { Key, KeyBar } from "../components/KeyHint.js";
 import { Link } from "../components/Link.js";
@@ -10,7 +10,8 @@ import { useContentWidth } from "../components/App.js";
 import { useNow } from "../hooks/useNow.js";
 
 export interface LoginPromptProps {
-  profile: SSOProfile;
+  /** What the login is for: a profile name, or the portal being browsed. */
+  label: string;
   deviceAuth: DeviceAuthInfo | null;
   authError?: string | null;
   copied?: boolean;
@@ -18,14 +19,14 @@ export interface LoginPromptProps {
   authorizing?: boolean;
 }
 
-function Frame({ profile, children }: { profile: SSOProfile; children: React.ReactNode }) {
+function Frame({ label, children }: { label: string; children: React.ReactNode }) {
   const width = useContentWidth();
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text color="yellow">⚠ SSO login required</Text>
         <Text dimColor>{"  —  "}</Text>
-        <Text bold>{profile.name}</Text>
+        <Text bold>{label}</Text>
       </Box>
       <Box borderStyle="round" borderColor="yellow" paddingX={1} width={width} flexDirection="column">
         {children}
@@ -35,7 +36,7 @@ function Frame({ profile, children }: { profile: SSOProfile; children: React.Rea
 }
 
 export function LoginPrompt({
-  profile,
+  label,
   deviceAuth,
   authError = null,
   copied = false,
@@ -47,7 +48,7 @@ export function LoginPrompt({
   if (authError) {
     return (
       <>
-        <Frame profile={profile}>
+        <Frame label={label}>
           <StatusMessage type="error">{authError}</StatusMessage>
           <Text dimColor>Check your network connection and the sso_start_url in ~/.aws/config.</Text>
         </Frame>
@@ -63,7 +64,7 @@ export function LoginPrompt({
   if (!deviceAuth) {
     return (
       <>
-        <Frame profile={profile}>
+        <Frame label={label}>
           <Spinner label="Requesting a device code…" />
         </Frame>
         <Box marginTop={1}>
@@ -79,7 +80,7 @@ export function LoginPrompt({
 
   return (
     <>
-      <Frame profile={profile}>
+      <Frame label={label}>
         {/* The code comes first: it is the thing to check against the browser,
             and it is short enough to never wrap. */}
         <Box>

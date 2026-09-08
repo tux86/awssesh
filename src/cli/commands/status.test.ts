@@ -4,8 +4,8 @@ import type { ProfileState } from "../../aws/profileState";
 
 test("formatStatusTable renders aligned rows", () => {
   const rows: ProfileState[] = [
-    { name: "prod", status: "valid", expiresAt: "2026-06-11T13:00:00.000Z", ssoExpiresAt: null, favorite: true },
-    { name: "staging", status: "needs-login", expiresAt: null, ssoExpiresAt: null, favorite: false },
+    { kind: "sso" as const, name: "prod", status: "valid", expiresAt: "2026-06-11T13:00:00.000Z", ssoExpiresAt: null, favorite: true },
+    { kind: "sso" as const, name: "staging", status: "needs-login", expiresAt: null, ssoExpiresAt: null, favorite: false },
   ];
   const out = formatStatusTable(rows, new Date("2026-06-11T12:00:00.000Z"));
   const lines = out.split("\n");
@@ -19,13 +19,13 @@ test("formatStatusTable renders aligned rows", () => {
 });
 
 test("formatStatusTable reports an empty config instead of a blank line", () => {
-  expect(formatStatusTable([], new Date())).toContain("no SSO profiles found");
+  expect(formatStatusTable([], new Date())).toContain("no profiles found");
 });
 
 test("formatStatusTable keeps the marker column aligned across rows", () => {
   const rows: ProfileState[] = [
-    { name: "prod", status: "valid", expiresAt: null, ssoExpiresAt: null, favorite: true },
-    { name: "dev", status: "valid", expiresAt: null, ssoExpiresAt: null, favorite: false },
+    { kind: "sso" as const, name: "prod", status: "valid", expiresAt: null, ssoExpiresAt: null, favorite: true },
+    { kind: "sso" as const, name: "dev", status: "valid", expiresAt: null, ssoExpiresAt: null, favorite: false },
   ];
   const [fav, plain] = formatStatusTable(rows, new Date()).split("\n");
   expect(fav!.indexOf("prod")).toBe(plain!.indexOf("dev"));

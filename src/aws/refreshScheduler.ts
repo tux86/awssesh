@@ -1,13 +1,13 @@
-export type Action = "refresh" | "wait" | "needs-login";
+export type Action = "refresh" | "wait";
 
-export interface ProfileTiming {
-  ssoTokenValid: boolean;        // is the cached SSO token still valid?
-  credsExpireAt: Date | null;    // when current role creds expire (null = none/unknown)
-}
-
-export function decideAction(timing: ProfileTiming, now: Date, leadMs: number): Action {
-  if (!timing.ssoTokenValid) return "needs-login";
-  if (timing.credsExpireAt === null) return "refresh";
-  const msLeft = timing.credsExpireAt.getTime() - now.getTime();
-  return msLeft <= leadMs ? "refresh" : "wait";
+/**
+ * Whether cached role credentials are due for renewal.
+ *
+ * Only the credentials matter here: whether an interactive login or an MFA code
+ * is outstanding is decided from the profile's state, which knows how to follow
+ * a `source_profile` chain to whatever the login actually belongs to.
+ */
+export function decideAction(credsExpireAt: Date | null, now: Date, leadMs: number): Action {
+  if (credsExpireAt === null) return "refresh";
+  return credsExpireAt.getTime() - now.getTime() <= leadMs ? "refresh" : "wait";
 }

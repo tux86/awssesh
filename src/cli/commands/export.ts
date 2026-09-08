@@ -1,28 +1,18 @@
-import { discoverProfiles, refreshProfile, readProfileCredentials } from "../../aws/sso";
-import { buildExportBlock } from "../../aws/console";
+import { buildCredentialProcessOutput, buildExportBlock } from "../../aws/env.js";
+import { obtainCredentials } from "./credentials.js";
 
-export async function runExport(profileName: string): Promise<number> {
-  const profile = (await discoverProfiles()).find((p) => p.name === profileName);
-  if (!profile) {
-    process.stderr.write(`unknown profile: ${profileName}\n`);
+/**
+ * `awssesh export <profile>` — shell `export` lines for `eval $(…)`, or with
+ * `--json` the `credential_process` payload the AWS SDKs read.
+ */
+export async function runExport(profileName: string, json: boolean): Promise<number> {
+  const result = await obtainCredentials(profileName, "ensure");
+  if (!result.ok) {
+    process.stderr.write(result.error + "\n");
     return 1;
   }
-  const result = await refreshProfile(profile);
-  if (!result.success) {
-    process.stderr.write(
-      `cannot export ${profileName}: ${
-        result.needsLogin
-          ? `needs login (run: awssesh refresh ${profileName})`
-          : result.error
-      }\n`
-    );
-    return 1;
-  }
-  const creds = readProfileCredentials(profileName);
-  if (!creds) {
-    process.stderr.write(`no credentials found for ${profileName}\n`);
-    return 1;
-  }
-  process.stdout.write(buildExportBlock(creds) + "\n");
+
+  const render = json ? buildCredentialProcessOutput : buildExportBlock;
+  process.stdout.write(render(result.credentials) + "\n");
   return 0;
 }
