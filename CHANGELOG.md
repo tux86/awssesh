@@ -15,6 +15,13 @@ replaced by npm (npx awssesh / npm i -g awssesh).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/awssesh/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/awssesh/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [2.2.0](https://github.com/tux86/awssesh/compare/v2.1.0...v2.2.0) (2026-09-08)
+
+
+### Features
+
+* **cli:** full-screen TUI, exec, credential_process, account browser and chained roles ([#22](https://github.com/tux86/awssesh/issues/22)) ([5ba5732](https://github.com/tux86/awssesh/commit/5ba5732f3b170ce8737088c280c51c1557514de0))
+
 ## [2.1.0](https://github.com/tux86/awssesh/compare/v2.0.0...v2.1.0) (2026-08-31)
 
 
