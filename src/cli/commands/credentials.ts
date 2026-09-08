@@ -10,12 +10,31 @@
 import { createInterface } from "node:readline/promises";
 import type { StoredCredentials } from "../../aws/credentials.js";
 import { discoverProfiles, sessionOf, type Profile, type SSOProfile } from "../../aws/profiles.js";
-import { describeOutcome, ensureCredentials, refreshProfile } from "../../aws/refresh.js";
+import {
+  describeOutcome,
+  ensureCredentials,
+  refreshProfile,
+  type CredentialsOutcome,
+} from "../../aws/refresh.js";
 import { loginToSession, openBrowser, startDeviceAuthorization } from "../../aws/sso.js";
 
 export type ObtainResult =
   | { ok: true; profile: Profile; credentials: StoredCredentials }
   | { ok: false; error: string };
+
+/**
+ * The effects the flow below needs, injected so the decision-making — how many
+ * times to prompt, when to refuse — can be tested without a terminal or AWS.
+ */
+export interface CredentialPrompts {
+  /** Fetch credentials, optionally with an MFA code the user has supplied. */
+  fetch: (mfaCode?: string) => Promise<CredentialsOutcome>;
+  /** Run a browser login for a profile; resolves to whether it worked. */
+  login: (profile: SSOProfile) => Promise<boolean>;
+  askMfa: (profileName: string) => Promise<string | undefined>;
+  /** Whether there is a human to answer at all. */
+  interactive: boolean;
+}
 
 /** Whether a human is there to answer a prompt or approve a browser login. */
 function interactive(): boolean {
@@ -61,39 +80,35 @@ async function runDeviceLogin(profile: SSOProfile): Promise<boolean> {
 }
 
 /**
- * Resolve credentials for `name`, logging in or asking for an MFA code when a
- * terminal is attached. `refresh` fetches new credentials even when the cached
- * ones are still good; `ensure` reuses them.
+ * Fetch credentials, logging in or asking for a code when that is what stands
+ * in the way — at most one login and one MFA prompt. If the credentials still
+ * are not usable after those, asking a second time would only loop.
  */
-export async function obtainCredentials(name: string, mode: "ensure" | "refresh"): Promise<ObtainResult> {
-  const profiles = await discoverProfiles();
-  const profile = profiles.find((p) => p.name === name);
-  if (!profile) return { ok: false, error: `unknown profile: ${name}` };
-
+export async function resolveCredentials(
+  name: string,
+  prompts: CredentialPrompts,
+): Promise<{ ok: true; credentials: StoredCredentials } | { ok: false; error: string }> {
   let mfaCode: string | undefined;
   let attemptedLogin = false;
 
-  // At most one login and one MFA prompt: if the credentials still are not
-  // usable after those, asking again would only loop.
   for (;;) {
-    const opts = { profiles, mfaCode };
-    const outcome =
-      mode === "refresh" ? await refreshProfile(profile, opts) : await ensureCredentials(profile, opts);
+    const outcome = await prompts.fetch(mfaCode);
+    if (outcome.ok) return { ok: true, credentials: outcome.credentials };
 
-    if (outcome.ok) return { ok: true, profile, credentials: outcome.credentials };
-
-    if (outcome.reason === "needs-login" && interactive() && !attemptedLogin) {
+    if (outcome.reason === "needs-login" && prompts.interactive && !attemptedLogin) {
       attemptedLogin = true;
-      if (await runDeviceLogin(outcome.profile)) continue;
+      if (await prompts.login(outcome.profile)) continue;
       return { ok: false, error: `${name}: SSO login failed` };
     }
 
-    if (outcome.reason === "needs-mfa" && interactive() && !mfaCode) {
-      mfaCode = await promptMfaCode(outcome.profile.name);
+    if (outcome.reason === "needs-mfa" && prompts.interactive && !mfaCode) {
+      mfaCode = await prompts.askMfa(outcome.profile.name);
       if (mfaCode) continue;
     }
 
-    if (!interactive() && (outcome.reason === "needs-login" || outcome.reason === "needs-mfa")) {
+    // Nothing is attached to answer: say what is missing and how to supply it
+    // once, by hand, rather than failing with a bare "access denied".
+    if (!prompts.interactive && (outcome.reason === "needs-login" || outcome.reason === "needs-mfa")) {
       return {
         ok: false,
         error: `${describeOutcome(outcome)} — run \`awssesh refresh ${name}\` in a terminal first`,
@@ -101,4 +116,26 @@ export async function obtainCredentials(name: string, mode: "ensure" | "refresh"
     }
     return { ok: false, error: `${name}: ${describeOutcome(outcome)}` };
   }
+}
+
+/**
+ * Resolve credentials for a named profile. `refresh` fetches new credentials
+ * even when the cached ones are still good; `ensure` reuses them.
+ */
+export async function obtainCredentials(name: string, mode: "ensure" | "refresh"): Promise<ObtainResult> {
+  const profiles = await discoverProfiles();
+  const profile = profiles.find((p) => p.name === name);
+  if (!profile) return { ok: false, error: `unknown profile: ${name}` };
+
+  const result = await resolveCredentials(name, {
+    fetch: (mfaCode) =>
+      mode === "refresh"
+        ? refreshProfile(profile, { profiles, mfaCode })
+        : ensureCredentials(profile, { profiles, mfaCode }),
+    login: runDeviceLogin,
+    askMfa: promptMfaCode,
+    interactive: interactive(),
+  });
+
+  return result.ok ? { ok: true, profile, credentials: result.credentials } : result;
 }

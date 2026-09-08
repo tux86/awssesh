@@ -5,7 +5,7 @@ import { profileRegion } from "../../aws/profiles.js";
 import { obtainCredentials } from "./credentials.js";
 
 /** The shell convention for "killed by signal N", so callers see what happened. */
-function exitCodeFor(code: number | null, signal: NodeJS.Signals | null): number {
+export function exitCodeFor(code: number | null, signal: NodeJS.Signals | null): number {
   if (signal) return 128 + (constants.signals[signal] ?? 0);
   return code ?? 0;
 }

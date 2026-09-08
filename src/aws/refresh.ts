@@ -26,8 +26,10 @@ import {
 } from "./profiles.js";
 import { fetchSSOCredentials } from "./sso.js";
 
-/** See sso.ts — in demo mode nothing may touch the real credentials file. */
-const DEMO = !!process.env.AWSSESH_DEMO;
+/** See sso.ts — in demo mode the credentials are canned, so nothing may be written. */
+function demoMode(): boolean {
+  return !!process.env.AWSSESH_DEMO;
+}
 
 const DEFAULT_STS_REGION = "us-east-1";
 
@@ -39,18 +41,38 @@ export type CredentialsOutcome =
   | { ok: false; reason: "needs-mfa"; profile: AssumeProfile }
   | { ok: false; reason: "error"; error: string };
 
+/**
+ * Where credentials actually come from. The two providers are the only part of
+ * a refresh that talks to AWS, so naming them here lets everything the
+ * dispatcher does around them — caching, chaining, attributing failures — be
+ * exercised without a network.
+ */
+export interface CredentialProviders {
+  fetchSSO: (profile: SSOProfile) => Promise<CredentialsResult>;
+  assume: (
+    profile: AssumeProfile,
+    source: StoredCredentials,
+    region: string,
+    mfaCode?: string,
+  ) => Promise<CredentialsResult>;
+}
+
+const AWS_PROVIDERS: CredentialProviders = { fetchSSO: fetchSSOCredentials, assume: assumeRole };
+
 export interface CredentialsOptions {
   /** The known profiles, so a chain can be resolved without re-reading config. */
   profiles?: Profile[];
   mfaCode?: string;
   /** How much life credentials must have left to count as usable. */
   leadMs?: number;
+  providers?: CredentialProviders;
 }
 
 interface Context {
   profiles: Profile[];
   mfaCode?: string;
   leadMs: number;
+  providers: CredentialProviders;
   /** Profiles already being resolved, so a `source_profile` loop cannot recurse forever. */
   visiting: Set<string>;
 }
@@ -69,6 +91,7 @@ async function context(opts: CredentialsOptions): Promise<Context> {
     profiles: opts.profiles ?? (await discoverProfiles()),
     mfaCode: opts.mfaCode,
     leadMs: opts.leadMs ?? 60_000,
+    providers: opts.providers ?? AWS_PROVIDERS,
     visiting: new Set(),
   };
 }
@@ -123,7 +146,7 @@ async function fetch(profile: Profile, ctx: Context): Promise<CredentialsOutcome
     let result: CredentialsResult;
 
     if (profile.kind === "sso") {
-      result = await fetchSSOCredentials(profile);
+      result = await ctx.providers.fetchSSO(profile);
     } else {
       // Asking STS without the code just returns AccessDenied, so check here
       // and let the caller prompt for one.
@@ -133,10 +156,15 @@ async function fetch(profile: Profile, ctx: Context): Promise<CredentialsOutcome
       if (!source.ok) return source;
 
       const sourceProfile = ctx.profiles.find((p) => p.name === profile.sourceProfile);
-      result = await assumeRole(profile, source.credentials, stsRegion(profile, sourceProfile), ctx.mfaCode);
+      result = await ctx.providers.assume(
+        profile,
+        source.credentials,
+        stsRegion(profile, sourceProfile),
+        ctx.mfaCode,
+      );
     }
 
-    if (result.credentials && !DEMO) await writeCredentials(profile.name, result.credentials);
+    if (result.credentials && !demoMode()) await writeCredentials(profile.name, result.credentials);
     return outcomeOf(result, profile);
   } finally {
     ctx.visiting.delete(profile.name);

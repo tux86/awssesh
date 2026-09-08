@@ -24,6 +24,42 @@ const DEMO_ACCOUNTS: SSOAccount[] = [
   { accountId: "333333333333", accountName: "Acme Production", emailAddress: "aws+prod@example.com" },
 ];
 
+/**
+ * Walk every page of a paginated SSO listing.
+ *
+ * Both listings page, and a caller that forgets to follow `nextToken` silently
+ * sees only the first 100 accounts — which looks exactly like "you have no
+ * access to the rest". The repeated-token guard is insurance against a server
+ * that never advances, which would otherwise spin here forever.
+ */
+export async function collectPages<T>(
+  fetchPage: (nextToken?: string) => Promise<{ items: T[]; nextToken?: string }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const page = await fetchPage(nextToken);
+    all.push(...page.items);
+    if (page.nextToken && page.nextToken === nextToken) break;
+    nextToken = page.nextToken;
+  } while (nextToken);
+
+  return all;
+}
+
+/** Map the SDK's account shape onto ours, dropping entries we could not use. */
+export function toAccounts(raw: { accountId?: string; accountName?: string; emailAddress?: string }[]): SSOAccount[] {
+  return raw
+    .filter((account) => !!account.accountId)
+    .map((account) => ({
+      accountId: account.accountId!,
+      accountName: account.accountName ?? "",
+      emailAddress: account.emailAddress,
+    }))
+    .sort((a, b) => describeAccount(a).localeCompare(describeAccount(b)));
+}
+
 /** How the account list is labelled everywhere it is shown. */
 export function describeAccount(account: SSOAccount): string {
   return account.accountName || account.emailAddress || account.accountId;
@@ -33,23 +69,12 @@ export async function listAccounts(session: SSOSession, accessToken: string): Pr
   if (DEMO) return DEMO_ACCOUNTS;
 
   const client = new SSOClient({ region: session.region });
-  const accounts: SSOAccount[] = [];
-  let nextToken: string | undefined;
-
-  do {
+  const raw = await collectPages(async (nextToken) => {
     const page = await client.send(new ListAccountsCommand({ accessToken, nextToken, maxResults: 100 }));
-    for (const account of page.accountList ?? []) {
-      if (!account.accountId) continue;
-      accounts.push({
-        accountId: account.accountId,
-        accountName: account.accountName ?? "",
-        emailAddress: account.emailAddress,
-      });
-    }
-    nextToken = page.nextToken;
-  } while (nextToken);
+    return { items: page.accountList ?? [], nextToken: page.nextToken };
+  });
 
-  return accounts.sort((a, b) => describeAccount(a).localeCompare(describeAccount(b)));
+  return toAccounts(raw);
 }
 
 export async function listAccountRoles(
@@ -60,18 +85,15 @@ export async function listAccountRoles(
   if (DEMO) return ["AdministratorAccess", "ReadOnlyAccess", "PowerUserAccess"];
 
   const client = new SSOClient({ region: session.region });
-  const roles: string[] = [];
-  let nextToken: string | undefined;
-
-  do {
+  const raw = await collectPages(async (nextToken) => {
     const page = await client.send(
       new ListAccountRolesCommand({ accessToken, accountId, nextToken, maxResults: 100 }),
     );
-    for (const role of page.roleList ?? []) {
-      if (role.roleName) roles.push(role.roleName);
-    }
-    nextToken = page.nextToken;
-  } while (nextToken);
+    return { items: page.roleList ?? [], nextToken: page.nextToken };
+  });
 
-  return roles.sort((a, b) => a.localeCompare(b));
+  return raw
+    .map((role) => role.roleName)
+    .filter((name): name is string => !!name)
+    .sort((a, b) => a.localeCompare(b));
 }
