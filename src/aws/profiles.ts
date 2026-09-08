@@ -241,7 +241,27 @@ export function ssoProfileEntries(
 }
 
 /**
- * Add (or update) `[profile name]` in ~/.aws/config, preserving every other
+ * The keys that say what kind of profile this is and which role it stands for.
+ * Writing a profile replaces all of them, so an overwrite cannot leave half of
+ * the previous definition behind; everything else in the section — `region`,
+ * `output`, comments — is left alone.
+ */
+const IDENTITY_KEYS = [
+  "sso_session",
+  "sso_start_url",
+  "sso_region",
+  "sso_account_id",
+  "sso_role_name",
+  "role_arn",
+  "source_profile",
+  "mfa_serial",
+  "external_id",
+  "duration_seconds",
+  "role_session_name",
+] as const;
+
+/**
+ * Add (or replace) `[profile name]` in ~/.aws/config, preserving every other
  * line — other profiles, `[sso-session]` blocks, comments and formatting — of a
  * file users very much hand-maintain.
  */
@@ -249,5 +269,18 @@ export async function writeProfileToConfig(name: string, entries: CredentialEntr
   const path = configPath();
   const existing = await readFile(path, "utf8").catch(() => "");
   await mkdir(awsDir(), { recursive: true });
-  await writeFile(path, upsertProfile(existing, `${PROFILE_PREFIX}${name}`, entries));
+  await writeFile(path, upsertProfile(existing, `${PROFILE_PREFIX}${name}`, entries, IDENTITY_KEYS));
+}
+
+/**
+ * Every profile named in ~/.aws/config, managed or not.
+ *
+ * Wider than `discoverProfiles` on purpose: a name collision matters even when
+ * the profile in the way is one awssesh does not manage, such as plain IAM keys.
+ */
+export async function discoverProfileNames(): Promise<string[]> {
+  const config = await parseIniFile(configPath());
+  return Object.keys(config)
+    .map(profileNameOf)
+    .filter((name): name is string => name !== null);
 }

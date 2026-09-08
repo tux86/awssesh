@@ -62,7 +62,13 @@ const AWS_PROVIDERS: CredentialProviders = { fetchSSO: fetchSSOCredentials, assu
 export interface CredentialsOptions {
   /** The known profiles, so a chain can be resolved without re-reading config. */
   profiles?: Profile[];
-  mfaCode?: string;
+  /**
+   * MFA codes by profile name. Keyed rather than a single code because a chain
+   * can cross two MFA-gated roles, and a TOTP is single-use: replaying one
+   * profile's code at the next hop is rejected, with an error that reads like a
+   * permissions problem.
+   */
+  mfaCodes?: Record<string, string>;
   /** How much life credentials must have left to count as usable. */
   leadMs?: number;
   providers?: CredentialProviders;
@@ -70,7 +76,7 @@ export interface CredentialsOptions {
 
 interface Context {
   profiles: Profile[];
-  mfaCode?: string;
+  mfaCodes: Record<string, string>;
   leadMs: number;
   providers: CredentialProviders;
   /** Profiles already being resolved, so a `source_profile` loop cannot recurse forever. */
@@ -89,7 +95,7 @@ function stored(credentials: AWSCredentials): StoredCredentials {
 async function context(opts: CredentialsOptions): Promise<Context> {
   return {
     profiles: opts.profiles ?? (await discoverProfiles()),
-    mfaCode: opts.mfaCode,
+    mfaCodes: opts.mfaCodes ?? {},
     leadMs: opts.leadMs ?? 60_000,
     providers: opts.providers ?? AWS_PROVIDERS,
     visiting: new Set(),
@@ -150,7 +156,8 @@ async function fetch(profile: Profile, ctx: Context): Promise<CredentialsOutcome
     } else {
       // Asking STS without the code just returns AccessDenied, so check here
       // and let the caller prompt for one.
-      if (profile.mfaSerial && !ctx.mfaCode) return { ok: false, reason: "needs-mfa", profile };
+      const mfaCode = ctx.mfaCodes[profile.name];
+      if (profile.mfaSerial && !mfaCode) return { ok: false, reason: "needs-mfa", profile };
 
       const source = await sourceCredentials(profile, ctx);
       if (!source.ok) return source;
@@ -160,7 +167,7 @@ async function fetch(profile: Profile, ctx: Context): Promise<CredentialsOutcome
         profile,
         source.credentials,
         stsRegion(profile, sourceProfile),
-        ctx.mfaCode,
+        mfaCode,
       );
     }
 

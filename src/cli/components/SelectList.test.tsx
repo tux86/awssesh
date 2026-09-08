@@ -185,16 +185,20 @@ test("a list taller than the terminal scrolls and says how much is hidden", asyn
   const { stdin, lastFrame, unmount } = mount(many);
   await tick();
 
-  expect(lastFrame()).toContain("more");
+  // The line that reports the count is also the one that reports what is
+  // off-screen; the key hints below it contain arrows of their own.
+  const info = () => lastFrame()!.split("\n").find((line) => line.includes("total"))!;
+
   expect(lastFrame()).toContain("account-00");
+  expect(info()).toContain("↓");
+  expect(info()).not.toContain("↑");
 
   for (let i = 0; i < 20; i++) stdin.write(KEYS.down);
   await tick();
 
-  const frame = lastFrame()!;
   // The cursor stays on screen, with the rest accounted for above and below.
-  expect(frame).toContain("▸ account-20");
-  expect(frame).toContain("↑");
-  expect(frame).toContain("↓");
+  expect(lastFrame()).toContain("▸ account-20");
+  expect(info()).toContain("↑");
+  expect(info()).toContain("↓");
   unmount();
 });

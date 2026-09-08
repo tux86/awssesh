@@ -35,6 +35,7 @@ awssesh/
 │   └── cli/                   # Terminal UI (React/Ink)
 │       ├── index.tsx          # Entry point + argument router
 │       ├── args.ts            # CLI argument parsing
+│       ├── altScreen.ts       # Alternate screen buffer + teardown on every exit
 │       ├── commands/          # Non-TUI subcommands
 │       │   ├── credentials.ts # Shared CLI credential path (login/MFA prompts)
 │       │   ├── status.ts      # `awssesh status`
@@ -42,6 +43,7 @@ awssesh/
 │       │   ├── exec.ts        # `awssesh exec <profile> -- <cmd>`
 │       │   └── refresh.ts     # `awssesh refresh [profile]`
 │       ├── tui/               # TUI screens
+│       │   ├── Awssesh.tsx    # Root component: state, screens, login/MFA flows
 │       │   ├── Dashboard.tsx  # Main profile list view
 │       │   ├── Details.tsx    # Profile detail view
 │       │   ├── Settings.tsx   # Settings screen
@@ -53,7 +55,7 @@ awssesh/
 │       │   └── useAutoRefresh.ts # Hook: in-process auto-refresh for ⟳ profiles
 │       ├── testKeys.ts        # Key sequences + tick helper for component tests
 │       ├── components/        # Shared Ink UI components
-│       │   ├── App.tsx        # Root container + responsive width
+│       │   ├── App.tsx        # Full-screen frame + layout hooks (width/height)
 │       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
 │       │   ├── SelectList.tsx # Filterable scrolling picker
 │       │   ├── KeyHint.tsx    # Key / KeyBar shortcut hints
@@ -119,6 +121,7 @@ awssesh --help
 | `AWSSESH_NO_UPDATE_CHECK` | Skip the GitHub release check on startup |
 | `AWSSESH_NO_HYPERLINKS` | Render URLs as plain text instead of OSC 8 links |
 | `AWSSESH_DEMO` | Stub the interactive SSO network calls (used by the demo recording) |
+| `AWSSESH_NO_ALT_SCREEN` | Draw inline instead of taking over the terminal |
 
 ## Keyboard Shortcuts (Dashboard)
 
@@ -138,6 +141,22 @@ awssesh --help
 | `?` | Keyboard shortcut help |
 | `Esc` | Back, or clear an active filter |
 | `q` | Quit |
+
+## Layout
+
+The TUI runs on the alternate screen buffer (`altScreen.ts`) and fills the
+terminal. `App.tsx` owns the frame — header, body, pinned footer — and exports
+the hooks every screen sizes itself from:
+
+- `useContentWidth()` — full width, for the table.
+- `usePanelWidth()` — capped, for panels of fields and prose.
+- `useBodyHeight()` — rows between the header and the footer. A screen that
+  renders a list derives its capacity from this rather than guessing at the
+  chrome, and pins its key hints to the bottom of the body.
+
+Anything that changes the header or footer height has to change the constants in
+`App.tsx` with it: a screen that sizes itself one row too tall pushes the frame
+past the terminal and scrolls the top line away.
 
 ## Testing
 

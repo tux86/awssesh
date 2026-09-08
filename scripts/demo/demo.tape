@@ -6,17 +6,22 @@
 # No custom theme or effects: VHS's default neutral dark terminal renders the
 # app's own ANSI colors, so the GIF looks exactly like a real run.
 #
-# AWSSESH_DEMO=1 stubs the interactive SSO network calls (device-auth +
-# silent refresh) with canned values, so the login screen and the ⟳ auto-refresh
-# render offline from the mock ~/.aws sandbox. The displayed command is the real
-# `npx awssesh` users run; a shell function shadows it to the local build.
+# awssesh takes over the terminal on the alternate screen buffer, so the frame
+# fills the window while it runs and the shell comes back untouched on `q` —
+# the recording ends on that restored prompt.
+#
+# AWSSESH_DEMO=1 stubs the interactive SSO network calls (device auth, silent
+# refresh, and the account/role listings behind `n`) with canned values, so the
+# login screen, the ⟳ auto-refresh and the profile browser all render offline
+# from the mock ~/.aws sandbox. The displayed command is the real `npx awssesh`
+# users run; a shell function shadows it to the local build.
 
 Output docs/screenshots/cli-demo.gif
 
 Set Shell "zsh"
 Set FontSize 22
 Set Width 1280
-Set Height 800
+Set Height 840
 Set Padding 20
 
 # ── Off-camera setup: mock sandbox HOME, demo stubs, offline update check, and
@@ -61,7 +66,7 @@ Sleep 300ms
 Up
 Sleep 600ms
 
-# ── Filter: apply it, show the "2/6 shown" indicator, then Esc clears it ─────
+# ── Filter: apply it, show the "2/8 shown" indicator, then Esc clears it ─────
 Type "/"
 Sleep 400ms
 Type "prod"
@@ -77,9 +82,12 @@ Sleep 1600ms
 Type "y"
 Sleep 1400ms
 
-# ── Open details, back out ───────────────────────────────────────────────────
+# ── Jump to the chained role at the end of the list: its details show the
+#    profile it assumes through and the MFA device it is gated on ────────────
+Type "G"
+Sleep 800ms
 Enter
-Sleep 2200ms
+Sleep 2600ms
 Escape
 Sleep 700ms
 
@@ -91,9 +99,26 @@ Sleep 700ms
 
 # ── Open settings, back out ──────────────────────────────────────────────────
 Type "s"
-Sleep 2000ms
+Sleep 1800ms
 Escape
 Sleep 700ms
+
+# ── Add a profile straight from the SSO portal: pick the portal, the account
+#    and the role, rename it, and it is written to ~/.aws/config ─────────────
+Type "n"
+Sleep 1400ms
+Enter
+Sleep 1800ms
+Enter
+Sleep 1500ms
+Enter
+Sleep 1200ms
+Backspace 40
+Sleep 400ms
+Type "acme-dev-admin"
+Sleep 1400ms
+Enter
+Sleep 2400ms
 
 # ── Pin a profile: toggle ⟳ auto-refresh ─────────────────────────────────────
 Down
@@ -101,6 +126,6 @@ Sleep 500ms
 Type "a"
 Sleep 1700ms
 
-# ── Quit ─────────────────────────────────────────────────────────────────────
+# ── Quit: the terminal is handed back exactly as it was found ────────────────
 Type "q"
-Sleep 600ms
+Sleep 1200ms

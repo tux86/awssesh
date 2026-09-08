@@ -6,7 +6,7 @@ import { Key, KeyBar } from "../components/KeyHint.js";
 import { Link } from "../components/Link.js";
 import { Spinner } from "../components/Spinner.js";
 import { StatusMessage } from "../components/StatusMessage.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 import { useNow } from "../hooks/useNow.js";
 
 export interface LoginPromptProps {
@@ -20,7 +20,7 @@ export interface LoginPromptProps {
 }
 
 function Frame({ label, children }: { label: string; children: React.ReactNode }) {
-  const width = useContentWidth();
+  const width = usePanelWidth();
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
@@ -52,11 +52,10 @@ export function LoginPrompt({
           <StatusMessage type="error">{authError}</StatusMessage>
           <Text dimColor>Check your network connection and the sso_start_url in ~/.aws/config.</Text>
         </Frame>
-        <Box marginTop={1}>
-          <KeyBar>
-            <Key k="Esc">back</Key>
-          </KeyBar>
-        </Box>
+        <Box flexGrow={1} />
+        <KeyBar>
+          <Key k="Esc">back</Key>
+        </KeyBar>
       </>
     );
   }
@@ -67,11 +66,10 @@ export function LoginPrompt({
         <Frame label={label}>
           <Spinner label="Requesting a device code…" />
         </Frame>
-        <Box marginTop={1}>
-          <KeyBar>
-            <Key k="Esc">cancel</Key>
-          </KeyBar>
-        </Box>
+        <Box flexGrow={1} />
+        <KeyBar>
+          <Key k="Esc">cancel</Key>
+        </KeyBar>
       </>
     );
   }
@@ -115,7 +113,9 @@ export function LoginPrompt({
         </Box>
       </Frame>
 
-      <Box marginTop={1}>
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
           <Key k="⏎">open browser</Key>
           <Key k="c">copy URL</Key>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { clampLeadMinutes, LEAD_MINUTES_MAX, LEAD_MINUTES_MIN, type AppSettings } from "../../aws/settings.js";
 import { Key, KeyBar } from "../components/KeyHint.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 
 interface Props {
   settings: AppSettings;
@@ -40,7 +40,7 @@ const FIELDS: Field[] = [
 
 export function Settings({ settings, onChange, onBack }: Props) {
   const [cursor, setCursor] = useState(0);
-  const width = useContentWidth();
+  const width = usePanelWidth();
   const field = FIELDS[cursor]!;
 
   useInput((input, key) => {
@@ -65,7 +65,7 @@ export function Settings({ settings, onChange, onBack }: Props) {
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box borderStyle="round" borderColor="gray" paddingX={1} width={width} flexDirection="column">
         <Box marginBottom={1}>
           <Text bold color="cyan">
@@ -96,7 +96,9 @@ export function Settings({ settings, onChange, onBack }: Props) {
         )}
       </Box>
 
-      <Box marginTop={1}>
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
           <Key k="↑↓">move</Key>
           {field.toggle ? <Key k="space">toggle</Key> : <Key k="←→">adjust</Key>}

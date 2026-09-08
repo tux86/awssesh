@@ -27,8 +27,8 @@ export type ObtainResult =
  * times to prompt, when to refuse — can be tested without a terminal or AWS.
  */
 export interface CredentialPrompts {
-  /** Fetch credentials, optionally with an MFA code the user has supplied. */
-  fetch: (mfaCode?: string) => Promise<CredentialsOutcome>;
+  /** Fetch credentials, with whatever MFA codes the user has supplied so far. */
+  fetch: (mfaCodes: Record<string, string>) => Promise<CredentialsOutcome>;
   /** Run a browser login for a profile; resolves to whether it worked. */
   login: (profile: SSOProfile) => Promise<boolean>;
   askMfa: (profileName: string) => Promise<string | undefined>;
@@ -88,11 +88,12 @@ export async function resolveCredentials(
   name: string,
   prompts: CredentialPrompts,
 ): Promise<{ ok: true; credentials: StoredCredentials } | { ok: false; error: string }> {
-  let mfaCode: string | undefined;
+  const mfaCodes: Record<string, string> = {};
+  const asked = new Set<string>();
   let attemptedLogin = false;
 
   for (;;) {
-    const outcome = await prompts.fetch(mfaCode);
+    const outcome = await prompts.fetch(mfaCodes);
     if (outcome.ok) return { ok: true, credentials: outcome.credentials };
 
     if (outcome.reason === "needs-login" && prompts.interactive && !attemptedLogin) {
@@ -101,9 +102,15 @@ export async function resolveCredentials(
       return { ok: false, error: `${name}: SSO login failed` };
     }
 
-    if (outcome.reason === "needs-mfa" && prompts.interactive && !mfaCode) {
-      mfaCode = await prompts.askMfa(outcome.profile.name);
-      if (mfaCode) continue;
+    // Each profile in a chain gets one prompt: a second for the same profile
+    // would only mean the first code was wrong, and re-asking loops.
+    if (outcome.reason === "needs-mfa" && prompts.interactive && !asked.has(outcome.profile.name)) {
+      asked.add(outcome.profile.name);
+      const code = await prompts.askMfa(outcome.profile.name);
+      if (code) {
+        mfaCodes[outcome.profile.name] = code;
+        continue;
+      }
     }
 
     // Nothing is attached to answer: say what is missing and how to supply it
@@ -128,10 +135,10 @@ export async function obtainCredentials(name: string, mode: "ensure" | "refresh"
   if (!profile) return { ok: false, error: `unknown profile: ${name}` };
 
   const result = await resolveCredentials(name, {
-    fetch: (mfaCode) =>
+    fetch: (mfaCodes) =>
       mode === "refresh"
-        ? refreshProfile(profile, { profiles, mfaCode })
-        : ensureCredentials(profile, { profiles, mfaCode }),
+        ? refreshProfile(profile, { profiles, mfaCodes })
+        : ensureCredentials(profile, { profiles, mfaCodes }),
     login: runDeviceLogin,
     askMfa: promptMfaCode,
     interactive: interactive(),

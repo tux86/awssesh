@@ -12,7 +12,7 @@ Keep your AWS SSO credentials fresh — automatically. A fast terminal dashboard
 
 ## Why awssesh
 
-- **k9s-style list-first dashboard** — all your SSO profiles at a glance with live expiry countdowns; navigate with j/k or arrow keys, no menus to dig through.
+- **Full-screen, k9s-style dashboard** — takes over the terminal while it runs and hands it back untouched when you quit; every profile at a glance with live expiry countdowns, navigated with j/k or arrow keys, no menus to dig through.
 - **In-process auto-refresh for ⟳ pinned profiles** — pin a profile with `a` and expiry-aware refresh keeps its credentials ready before they expire, with no fixed-interval polling waste.
 - **Notify-on-login, never surprise you** — when an interactive SSO login is required awssesh sends a desktop notification so you know to log in.
 - **One-keystroke everything** — copy `export AWS_*` vars, open the AWS console, copy the profile name, or force a refresh — all from the dashboard without leaving your terminal.
@@ -167,6 +167,7 @@ block.
 | `s` | Open settings |
 | `?` | Show all keyboard shortcuts |
 | `Esc` | Back, or clear an active filter |
+| `g` / `G` | Jump to first / last profile |
 | `q` | Quit |
 
 ---
@@ -185,6 +186,7 @@ When an interactive SSO login is needed, a desktop notification is sent (`awsses
 |----------|--------|
 | `AWSSESH_NO_UPDATE_CHECK` | Skip the GitHub release check on startup |
 | `AWSSESH_NO_HYPERLINKS` | Render URLs as plain text instead of clickable OSC 8 links |
+| `AWSSESH_NO_ALT_SCREEN` | Draw inline instead of taking over the terminal |
 
 ---
 

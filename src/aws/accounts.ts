@@ -16,7 +16,10 @@ export interface SSOAccount {
   emailAddress?: string;
 }
 
-const DEMO = !!process.env.AWSSESH_DEMO;
+/** Read per call, not at import time: a module-level snapshot depends on load order. */
+function demoMode(): boolean {
+  return !!process.env.AWSSESH_DEMO;
+}
 
 const DEMO_ACCOUNTS: SSOAccount[] = [
   { accountId: "111111111111", accountName: "Acme Development", emailAddress: "aws+dev@example.com" },
@@ -66,7 +69,7 @@ export function describeAccount(account: SSOAccount): string {
 }
 
 export async function listAccounts(session: SSOSession, accessToken: string): Promise<SSOAccount[]> {
-  if (DEMO) return DEMO_ACCOUNTS;
+  if (demoMode()) return DEMO_ACCOUNTS;
 
   const client = new SSOClient({ region: session.region });
   const raw = await collectPages(async (nextToken) => {
@@ -82,7 +85,7 @@ export async function listAccountRoles(
   accessToken: string,
   accountId: string,
 ): Promise<string[]> {
-  if (DEMO) return ["AdministratorAccess", "ReadOnlyAccess", "PowerUserAccess"];
+  if (demoMode()) return ["AdministratorAccess", "ReadOnlyAccess", "PowerUserAccess"];
 
   const client = new SSOClient({ region: session.region });
   const raw = await collectPages(async (nextToken) => {

@@ -11,7 +11,7 @@ import { SelectList } from "../components/SelectList.js";
 import { Key, KeyBar } from "../components/KeyHint.js";
 import { Spinner } from "../components/Spinner.js";
 import { StatusMessage } from "../components/StatusMessage.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 
 interface Props {
   sessions: SSOSession[];
@@ -51,7 +51,7 @@ export function AccountBrowser({
   const [roles, setRoles] = useState<string[]>([]);
   const [role, setRole] = useState("");
   const [name, setName] = useState("");
-  const width = useContentWidth();
+  const width = usePanelWidth();
 
   const token = useRef<string | null>(null);
   const alive = useRef(true);
@@ -169,7 +169,7 @@ export function AccountBrowser({
 
   if (step === "loading") {
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" flexGrow={1}>
         <Spinner label={message} />
       </Box>
     );
@@ -177,13 +177,12 @@ export function AccountBrowser({
 
   if (step === "error") {
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" flexGrow={1}>
         <StatusMessage type="error">{message}</StatusMessage>
-        <Box marginTop={1}>
-          <KeyBar>
-            <Key k="any key">back</Key>
-          </KeyBar>
-        </Box>
+        <Box flexGrow={1} />
+        <KeyBar>
+          <Key k="any key">back</Key>
+        </KeyBar>
       </Box>
     );
   }
@@ -235,7 +234,7 @@ export function AccountBrowser({
   const exists = existingNames.includes(name);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">
           Add profile — name it
@@ -273,7 +272,9 @@ export function AccountBrowser({
         </Box>
       </Box>
 
-      <Box marginTop={1}>
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
           <Key k="⏎">save</Key>
           <Key k="Esc">back</Key>

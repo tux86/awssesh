@@ -5,7 +5,7 @@ import { profileRegion, profileRoleName, type Profile } from "../../aws/profiles
 import { formatClock, formatTimeLeft } from "../../aws/duration.js";
 import { Key, KeyBar } from "../components/KeyHint.js";
 import { Link } from "../components/Link.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 import { useNow } from "../hooks/useNow.js";
 
 interface Props {
@@ -55,7 +55,7 @@ export function Details({
   onToggleAuto,
 }: Props) {
   const now = useNow(1000);
-  const width = useContentWidth();
+  const width = usePanelWidth();
 
   useInput((input, key) => {
     if (key.escape || key.leftArrow || input === "q") onBack();
@@ -67,7 +67,7 @@ export function Details({
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box borderStyle="round" borderColor="gray" paddingX={1} width={width} flexDirection="column">
         <Box marginBottom={1}>
           <Text bold color="cyan">
@@ -81,14 +81,16 @@ export function Details({
           <Text color={STATUS_COLOR[profile.status]}>{profile.status}</Text>
         </Row>
         <Row label="creds">
-          {/* Was a raw ISO timestamp; now the answer people actually want first. */}
-          {profile.expiresAt ? (
+          {/* Was a raw ISO timestamp; now the answer people actually want first.
+              Strictly the credentials' own clock: a profile that has never been
+              refreshed says so instead of echoing the login's expiry. */}
+          {profile.credentialsExpireAt ? (
             <Text>
-              {formatTimeLeft(profile.expiresAt, now)}
-              <Text dimColor>{`  (${formatClock(profile.expiresAt)})`}</Text>
+              {formatTimeLeft(profile.credentialsExpireAt, now)}
+              <Text dimColor>{`  (${formatClock(profile.credentialsExpireAt)})`}</Text>
             </Text>
           ) : (
-            <Text dimColor>—</Text>
+            <Text dimColor>none yet</Text>
           )}
         </Row>
         <Row label="sso login">
@@ -128,7 +130,10 @@ export function Details({
         )}
       </Box>
 
-      <Box marginTop={1}>
+      {/* Pushes the hints to the bottom of the screen, where they stay put. */}
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
         <Key k="r">refresh</Key>
         <Key k="c">copy env</Key>

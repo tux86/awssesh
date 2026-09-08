@@ -13,6 +13,7 @@ const PROFILES: ProfileState[] = [
     kind: "sso",
     status: "valid",
     expiresAt: hour(1),
+    credentialsExpireAt: hour(1),
     ssoExpiresAt: hour(8),
     favorite: true,
     accountId: "111111111111",
@@ -22,6 +23,7 @@ const PROFILES: ProfileState[] = [
     kind: "assume",
     status: "needs-login",
     expiresAt: null,
+    credentialsExpireAt: null,
     ssoExpiresAt: null,
     favorite: false,
     accountId: "333333333333",
@@ -31,6 +33,7 @@ const PROFILES: ProfileState[] = [
     kind: "assume",
     status: "needs-mfa",
     expiresAt: hour(8),
+    credentialsExpireAt: hour(8),
     ssoExpiresAt: hour(8),
     favorite: false,
     accountId: "444444444444",
@@ -73,14 +76,25 @@ test("every profile is listed with its status and account", async () => {
   unmount();
 });
 
-test("the footer counts what is pinned and what wants attention", async () => {
+test("the reserved line under the table says where the cursor is", async () => {
+  const { stdin, lastFrame, unmount } = mount();
+  await tick();
+  expect(lastFrame()).toContain("1/3");
+
+  stdin.write(KEYS.down);
+  await tick();
+  expect(lastFrame()).toContain("2/3");
+  unmount();
+});
+
+test("both kinds of profile are labelled, so a chain is not mistaken for an SSO one", async () => {
   const { lastFrame, unmount } = mount();
   await tick();
 
-  expect(lastFrame()).toContain("3 profiles");
-  expect(lastFrame()).toContain("1 ⟳ auto");
-  // needs-login and needs-mfa both count as needing a human.
-  expect(lastFrame()).toContain("2 need attention");
+  const frame = lastFrame()!;
+  expect(frame).toContain("TYPE");
+  expect(frame).toContain("sso");
+  expect(frame).toContain("assumed");
   unmount();
 });
 

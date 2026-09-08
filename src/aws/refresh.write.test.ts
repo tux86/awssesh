@@ -109,7 +109,7 @@ test("a chained profile is assumed with its source's freshly fetched credentials
 
 test("an MFA code reaches the STS call rather than being swallowed", async () => {
   const locked: AssumeProfile = { ...PROD, name: "locked", mfaSerial: "arn:aws:iam::3:mfa/walid" };
-  const outcome = await refresh.refreshProfile(locked, { profiles: [DEV, locked], mfaCode: "123456", providers });
+  const outcome = await refresh.refreshProfile(locked, { profiles: [DEV, locked], mfaCodes: { locked: "123456" }, providers });
 
   expect(outcome.ok).toBe(true);
   expect(assumeCalls[0]?.mfaCode).toBe("123456");
@@ -130,4 +130,32 @@ test("demo mode never writes canned credentials to the real file", async () => {
   } finally {
     delete process.env.AWSSESH_DEMO;
   }
+});
+
+test("each MFA-gated hop of a chain is asked for separately", async () => {
+  const first: AssumeProfile = { ...PROD, name: "step-one", mfaSerial: "arn:aws:iam::3:mfa/one" };
+  const second: AssumeProfile = {
+    ...PROD,
+    name: "step-two",
+    sourceProfile: "step-one",
+    mfaSerial: "arn:aws:iam::3:mfa/two",
+  };
+  const profiles = [DEV, first, second];
+
+  // A code for the far end alone is not enough: the hop in between wants its own.
+  const partial = await refresh.refreshProfile(second, {
+    profiles,
+    mfaCodes: { "step-two": "222222" },
+    providers,
+  });
+  expect(partial).toEqual({ ok: false, reason: "needs-mfa", profile: first });
+
+  const full = await refresh.refreshProfile(second, {
+    profiles,
+    mfaCodes: { "step-one": "111111", "step-two": "222222" },
+    providers,
+  });
+  expect(full.ok).toBe(true);
+  // A TOTP is single-use, so each hop must carry the code typed for it.
+  expect(assumeCalls.map((call) => call.mfaCode)).toEqual(["111111", "222222"]);
 });

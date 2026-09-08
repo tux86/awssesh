@@ -181,6 +181,99 @@ test("writeProfileToConfig appends a profile and leaves the rest untouched", asy
   expect(profiles.parseProfiles(profiles.parseIni(text)).map((p) => p.name)).toEqual([]);
 });
 
+test("writing a profile replaces what it is, rather than merging into it", async () => {
+  const path = join(TMP, ".aws", "config");
+  await writeFile(
+    path,
+    [
+      "[sso-session my-sso]",
+      "sso_start_url = https://example.awsapps.com/start",
+      "sso_region = us-east-1",
+      "",
+      "# hand-written, keep me",
+      "[profile prod]",
+      "role_arn = arn:aws:iam::1:role/Old",
+      "source_profile = dev",
+      "mfa_serial = arn:aws:iam::1:mfa/x",
+      "region = us-east-1",
+      "output = json",
+      "",
+    ].join("\n"),
+  );
+
+  await profiles.writeProfileToConfig("prod", {
+    sso_session: "my-sso",
+    sso_account_id: "999999999999",
+    sso_role_name: "NewRole",
+    region: "eu-west-1",
+  });
+
+  const text = await readFile(path, "utf8");
+  // The old identity is gone: leaving role_arn behind meant the reader kept
+  // using the old chain while the user was told the new profile was added.
+  expect(text).not.toContain("role_arn");
+  expect(text).not.toContain("source_profile");
+  expect(text).not.toContain("mfa_serial");
+  // Everything else about the section — and the file — is untouched.
+  expect(text).toContain("# hand-written, keep me");
+  expect(text).toContain("output = json");
+  expect(text).toContain("region = eu-west-1");
+
+  const parsed = profiles.parseProfiles(profiles.parseIni(text));
+  expect(parsed).toEqual([
+    {
+      kind: "sso",
+      name: "prod",
+      ssoStartUrl: "https://example.awsapps.com/start",
+      ssoAccountId: "999999999999",
+      ssoRoleName: "NewRole",
+      ssoRegion: "us-east-1",
+      region: "eu-west-1",
+      ssoSession: "my-sso",
+    },
+  ]);
+});
+
+test("switching a profile between portal dialects leaves no stale key behind", async () => {
+  const path = join(TMP, ".aws", "config");
+  await writeFile(
+    path,
+    "[profile one]\nsso_session = my-sso\nsso_account_id = 1\nsso_role_name = R\n",
+  );
+
+  await profiles.writeProfileToConfig("one", {
+    sso_start_url: "https://other.awsapps.com/start",
+    sso_region: "eu-west-1",
+    sso_account_id: "2",
+    sso_role_name: "R",
+  });
+
+  const text = await readFile(path, "utf8");
+  // sso_session wins over an inline start URL when both are present.
+  expect(text).not.toContain("sso_session");
+  expect(profiles.parseProfiles(profiles.parseIni(text))[0]).toMatchObject({
+    ssoStartUrl: "https://other.awsapps.com/start",
+    ssoAccountId: "2",
+  });
+});
+
+test("discoverProfileNames sees profiles awssesh does not manage", async () => {
+  await writeFile(
+    join(TMP, ".aws", "config"),
+    CONFIG + "\n[profile plain-keys]\nregion = eu-west-1\n",
+  );
+  const names = await profiles.discoverProfileNames();
+
+  // A name collision matters even when the profile in the way is one awssesh
+  // would never list.
+  expect(names).toContain("plain-keys");
+  expect(names).toContain("static");
+  expect(names).toContain("dev");
+  expect(await profiles.discoverProfiles()).not.toContainEqual(
+    expect.objectContaining({ name: "plain-keys" }),
+  );
+});
+
 test("discoverProfiles reads ~/.aws/config", async () => {
   await writeFile(join(TMP, ".aws", "config"), CONFIG);
   const found = await profiles.discoverProfiles();

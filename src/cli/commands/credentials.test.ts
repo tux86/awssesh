@@ -28,10 +28,14 @@ const NEEDS_MFA: CredentialsOutcome = { ok: false, reason: "needs-mfa", profile:
 
 /** A flow whose effects are all recorded, so each test asserts what was asked of the user. */
 function spy(outcomes: CredentialsOutcome[], overrides: Partial<CredentialPrompts> = {}) {
-  const calls = { fetch: [] as (string | undefined)[], logins: [] as string[], mfaPrompts: [] as string[] };
+  const calls = {
+    fetch: [] as Record<string, string>[],
+    logins: [] as string[],
+    mfaPrompts: [] as string[],
+  };
   const prompts: CredentialPrompts = {
-    fetch: async (mfaCode) => {
-      calls.fetch.push(mfaCode);
+    fetch: async (mfaCodes) => {
+      calls.fetch.push({ ...mfaCodes });
       return outcomes[calls.fetch.length - 1] ?? outcomes[outcomes.length - 1]!;
     },
     login: async (profile) => {
@@ -53,7 +57,7 @@ test("credentials that are already usable ask the user for nothing", async () =>
   const result = await resolveCredentials("dev", prompts);
 
   expect(result).toEqual({ ok: true, credentials: CREDS });
-  expect(calls.fetch).toEqual([undefined]);
+  expect(calls.fetch).toEqual([{}]);
   expect(calls.logins).toEqual([]);
   expect(calls.mfaPrompts).toEqual([]);
 });
@@ -98,8 +102,8 @@ test("an MFA code is collected once and passed to the retry", async () => {
 
   expect(result.ok).toBe(true);
   expect(calls.mfaPrompts).toEqual(["locked"]);
-  // The second fetch is the one that carries the code.
-  expect(calls.fetch).toEqual([undefined, "123456"]);
+  // The second fetch carries the code, under the name of the profile that asked.
+  expect(calls.fetch).toEqual([{}, { locked: "123456" }]);
 });
 
 test("a rejected code is not re-prompted in a loop", async () => {

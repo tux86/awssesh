@@ -1,6 +1,17 @@
 // Layout components
-export { App, renderApp, useContentWidth, MIN_WIDTH, MAX_WIDTH, type AppProps } from "./App.js";
-export { Wordmark } from "./Wordmark.js";
+export {
+  App,
+  renderApp,
+  useContentWidth,
+  usePanelWidth,
+  useBodyHeight,
+  useFrameHeight,
+  useTallHeader,
+  MIN_WIDTH,
+  MAX_PANEL_WIDTH,
+  type AppProps,
+} from "./App.js";
+export { Wordmark, WordmarkLine } from "./Wordmark.js";
 
 // Interactive components
 export { ActionBar, ACTIONS, type ActionItem, type ActionBarProps } from "./ActionBar.js";

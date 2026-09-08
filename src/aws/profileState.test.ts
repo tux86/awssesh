@@ -65,7 +65,19 @@ test("role credentials, not the portal token, drive the countdown", async () => 
   });
   const state = await profileState.buildProfileState(DEV, [DEV], false, NOW);
   expect(state.expiresAt).toBe(expiration.toISOString());
+  expect(state.credentialsExpireAt).toBe(expiration.toISOString());
   expect(state.ssoExpiresAt).not.toBe(state.expiresAt);
+});
+
+test("a profile with no credentials has no credential expiry, only a token one", async () => {
+  await cacheToken(new Date(NOW.getTime() + 8 * 3_600_000));
+  const fresh: SSOProfile = { ...DEV, name: "never-fetched" };
+  const state = await profileState.buildProfileState(fresh, [fresh], false, NOW);
+
+  expect(state.credentialsExpireAt).toBeNull();
+  // The dashboard column still falls back to the token — it shows whatever
+  // expires next — but the two are no longer the same field.
+  expect(state.expiresAt).toBe(state.ssoExpiresAt);
 });
 
 test("a chained profile inherits the login state of the SSO profile it roots at", async () => {

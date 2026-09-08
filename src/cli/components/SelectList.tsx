@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { pad, viewport } from "../tui/columns.js";
-import { useContentWidth } from "./App.js";
-import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { useBodyHeight, useContentWidth } from "./App.js";
 import { Key, KeyBar } from "./KeyHint.js";
 
 export interface SelectItem {
@@ -19,12 +18,11 @@ interface Props {
   onSelect: (value: string) => void;
   onCancel: () => void;
   emptyLabel?: string;
-  /** Rows of chrome above and below the list, used to size the viewport. */
-  chromeRows?: number;
 }
 
 const HINT_WIDTH = 16;
-const DEFAULT_CHROME_ROWS = 14;
+/** Title, its margin, the position line and the key hints. */
+const CHROME_ROWS = 4;
 
 /**
  * A filterable, scrolling picker.
@@ -33,11 +31,11 @@ const DEFAULT_CHROME_ROWS = 14;
  * this list is a "find the one you want out of dozens" moment, where the first
  * thing anyone does is type part of the name.
  */
-export function SelectList({ title, items, onSelect, onCancel, emptyLabel, chromeRows }: Props) {
+export function SelectList({ title, items, onSelect, onCancel, emptyLabel }: Props) {
   const [cursor, setCursor] = useState(0);
   const [filter, setFilter] = useState("");
   const width = useContentWidth();
-  const { rows } = useTerminalSize();
+  const bodyHeight = useBodyHeight();
 
   const visible = useMemo(() => {
     if (!filter) return items;
@@ -54,7 +52,8 @@ export function SelectList({ title, items, onSelect, onCancel, emptyLabel, chrom
   }, [visible.length]);
 
   const cursorIndex = Math.min(cursor, Math.max(0, visible.length - 1));
-  const capacity = Math.max(3, rows - (chromeRows ?? DEFAULT_CHROME_ROWS));
+  const listHeight = Math.max(3, bodyHeight - CHROME_ROWS);
+  const capacity = Math.max(1, listHeight - 2); // its border
   const window = viewport(visible.length, cursorIndex, capacity);
 
   useInput((input, key) => {
@@ -79,16 +78,21 @@ export function SelectList({ title, items, onSelect, onCancel, emptyLabel, chrom
   const labelWidth = Math.max(10, width - 4 - HINT_WIDTH);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">
           {title}
         </Text>
       </Box>
 
-      <Box borderStyle="round" borderColor="gray" paddingX={1} width={width} flexDirection="column">
-        {window.hiddenAbove > 0 && <Text dimColor>{`  ↑ ${window.hiddenAbove} more`}</Text>}
-
+      <Box
+        borderStyle="round"
+        borderColor="gray"
+        paddingX={1}
+        width={width}
+        height={listHeight}
+        flexDirection="column"
+      >
         {visible.length === 0 && (
           <Text dimColor>{filter ? `nothing matches “${filter}”` : (emptyLabel ?? "(nothing to show)")}</Text>
         )}
@@ -105,20 +109,21 @@ export function SelectList({ title, items, onSelect, onCancel, emptyLabel, chrom
             </Box>
           );
         })}
-
-        {window.hiddenBelow > 0 && <Text dimColor>{`  ↓ ${window.hiddenBelow} more`}</Text>}
       </Box>
 
-      <Box width={width}>
+      {/* One reserved row: the filter, the position, and what is off-screen. */}
+      <Box width={width} height={1}>
         <Text color="cyan" wrap="truncate">
           {filter ? `/${filter}` : ""}
         </Text>
         <Text dimColor wrap="truncate">
           {filter ? `  — ${visible.length}/${items.length}` : `${items.length} total`}
+          {window.hiddenAbove > 0 ? `  ↑ ${window.hiddenAbove}` : ""}
+          {window.hiddenBelow > 0 ? `  ↓ ${window.hiddenBelow}` : ""}
         </Text>
       </Box>
 
-      <Box marginTop={1}>
+      <Box>
         <KeyBar>
           <Key k="↑↓">move</Key>
           <Key k="⏎">select</Key>

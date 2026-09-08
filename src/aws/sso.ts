@@ -45,8 +45,13 @@ export interface TokenInfo {
  * calls are stubbed with canned values so the README demo GIF (scripts/demo/)
  * can show the device-login screen and the silent auto-refresh using mock data,
  * fully offline. Inert for real users — has no effect unless the env var is set.
+ *
+ * Read per call rather than snapshotted at import time, so it cannot depend on
+ * which module happened to load first.
  */
-const DEMO = !!process.env.AWSSESH_DEMO;
+function demoMode(): boolean {
+  return !!process.env.AWSSESH_DEMO;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SSO Cache
@@ -101,7 +106,7 @@ export async function saveSSOTokenToCache(session: SSOSession, tokenInfo: TokenI
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function startDeviceAuthorization(session: SSOSession): Promise<DeviceAuthInfo | null> {
-  if (DEMO) {
+  if (demoMode()) {
     // Mirror the shape AWS actually returns for `verificationUriComplete` —
     // a long portal URL with the code embedded — so the demo exercises the
     // same wrapping the real login screen has to survive.
@@ -156,7 +161,7 @@ export async function pollForToken(
   session: SSOSession,
   deviceAuth: DeviceAuthInfo
 ): Promise<TokenInfo | null> {
-  if (DEMO) {
+  if (demoMode()) {
     // Stay pending: the recording shows the URL/code screen, then Esc cancels.
     return new Promise<TokenInfo | null>(() => {
       /* never resolves in demo mode */
@@ -277,7 +282,7 @@ export async function fetchSSOCredentials(profile: SSOProfile): Promise<Credenti
   const token = await findValidToken(profile);
   if (!token) return { failure: "expired-token", error: "SSO login required" };
 
-  if (DEMO) {
+  if (demoMode()) {
     // Pretend the silent refresh succeeded so the auto-refresh tick stays
     // offline and the ⟳ favorites keep their valid state during recording.
     return {

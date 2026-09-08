@@ -16,7 +16,7 @@ export interface AutoRefreshView {
   /** The profiles as configured, for the screens that need more than their state. */
   configured: Profile[];
   reload: () => Promise<void>;
-  refreshOne: (name: string, mfaCode?: string) => Promise<CredentialsOutcome>;
+  refreshOne: (name: string, mfaCodes?: Record<string, string>) => Promise<CredentialsOutcome>;
   /** Toggle ⟳ for a profile, persist it, and return the resulting settings. */
   setFavorite: (name: string) => AppSettings;
 }
@@ -39,6 +39,13 @@ export function useAutoRefresh(
   const [configured, setConfigured] = useState<Profile[]>([]);
   const [ready, setReady] = useState(false);
   const notified = useRef(new Set<string>());
+  /**
+   * Which pass is the current one. A tick refreshes profiles over the network
+   * and can outlive a later reload — toggling ⟳ during a slow tick used to see
+   * the marker flip back, because the tick finished last with flags it had
+   * snapshotted before the toggle.
+   */
+  const generation = useRef(0);
 
   // Keep the latest settings + callback in refs so the interval closure always
   // reads current values without resubscribing the timer.
@@ -58,6 +65,7 @@ export function useAutoRefresh(
   /** Recompute every profile from disk, refreshing the favorites that are due. */
   const sync = useCallback(
     async ({ refreshDue }: { refreshDue: boolean }) => {
+      const pass = ++generation.current;
       const s = settingsRef.current;
       const leadMs = s.refreshLeadMinutes * 60 * 1000;
       const favorites = new Set(s.favoriteProfiles);
@@ -91,6 +99,7 @@ export function useAutoRefresh(
         states.push(state);
       }
 
+      if (generation.current !== pass) return; // superseded while we were away
       setProfiles(states);
       setConfigured(discovered);
       setReady(true);
@@ -118,12 +127,12 @@ export function useAutoRefresh(
 
   /** Refresh a single profile now. The caller acts on whatever it still needs. */
   const refreshOne = useCallback(
-    async (name: string, mfaCode?: string): Promise<CredentialsOutcome> => {
+    async (name: string, mfaCodes?: Record<string, string>): Promise<CredentialsOutcome> => {
       const discovered = await discoverProfiles();
       const profile = discovered.find((p) => p.name === name);
       if (!profile) return { ok: false, reason: "error", error: `${name} is no longer in ~/.aws/config` };
 
-      const outcome = await refreshProfile(profile, { profiles: discovered, mfaCode });
+      const outcome = await refreshProfile(profile, { profiles: discovered, mfaCodes });
       if (outcome.ok) notified.current.delete(name);
       await reload();
       return outcome;

@@ -2,7 +2,7 @@ import React from "react";
 import { Box, Text, useInput } from "ink";
 import { Key, KeyBar } from "../components/KeyHint.js";
 import { Spinner } from "../components/Spinner.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 
 interface Props {
   profileName: string;
@@ -28,7 +28,7 @@ export function MfaPrompt({
   onSubmit,
   onCancel,
 }: Props) {
-  const width = useContentWidth();
+  const width = usePanelWidth();
 
   useInput((input, key) => {
     if (key.escape) return onCancel();
@@ -43,7 +43,7 @@ export function MfaPrompt({
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box marginBottom={1}>
         <Text color="yellow">⚠ MFA required</Text>
         <Text dimColor>{"  —  "}</Text>
@@ -75,7 +75,9 @@ export function MfaPrompt({
         </Box>
       </Box>
 
-      <Box marginTop={1}>
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
           <Key k="⏎">submit</Key>
           <Key k="Esc">cancel</Key>

@@ -21,6 +21,14 @@ export interface ProfileState {
    * knows their expiry, otherwise the SSO token. ISO string, or null.
    */
   expiresAt: string | null;
+  /**
+   * When the stored credentials expire — null when there are none.
+   *
+   * Distinct from `expiresAt`, which falls back to the token: a screen that
+   * says "creds" has to be able to say there are none, rather than quoting the
+   * login's clock as if credentials had been fetched.
+   */
+  credentialsExpireAt: string | null;
   /** SSO token expiry — when the next interactive browser login is due. */
   ssoExpiresAt: string | null;
   favorite: boolean;
@@ -73,6 +81,7 @@ export async function buildProfileState(
     kind: profile.kind,
     status: status(profile, ssoValid, creds ? credentialsAreFresh(creds, 0, now.getTime()) : false),
     expiresAt: creds?.expiresAt?.toISOString() ?? ssoExpiresAt,
+    credentialsExpireAt: creds?.expiresAt?.toISOString() ?? null,
     ssoExpiresAt,
     favorite,
     accountId: profileAccountId(profile),

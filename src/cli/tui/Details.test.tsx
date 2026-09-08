@@ -33,6 +33,7 @@ const SSO_STATE: ProfileState = {
   kind: "sso",
   status: "valid",
   expiresAt: hour(1),
+  credentialsExpireAt: hour(1),
   ssoExpiresAt: hour(8),
   favorite: true,
   accountId: "111111111111",
@@ -114,6 +115,7 @@ test("a chain rooted in IAM keys is not told it needs a login it will never need
     kind: "assume",
     status: "valid",
     expiresAt: hour(1),
+    credentialsExpireAt: hour(1),
     ssoExpiresAt: null,
     favorite: false,
     accountId: "333333333333",
@@ -123,6 +125,26 @@ test("a chain rooted in IAM keys is not told it needs a login it will never need
 
   // No portal behind it, so "required" here would be a lie.
   expect(lastFrame()).not.toContain("required");
+  unmount();
+});
+
+test("a profile with no credentials yet says so, rather than quoting the login clock", async () => {
+  const state: ProfileState = {
+    ...SSO_STATE,
+    status: "needs-mfa",
+    kind: "assume",
+    // What the dashboard column falls back to — the token, not credentials.
+    expiresAt: hour(8),
+    credentialsExpireAt: null,
+    ssoExpiresAt: hour(8),
+  };
+  const { lastFrame, unmount } = mount(state, CHAINED_CONFIG);
+  await tick();
+
+  const frame = lastFrame()!;
+  expect(frame).toContain("none yet");
+  // The two rows must not read as the same clock twice.
+  expect(frame.match(/\d+h \d\dm/g) ?? []).toHaveLength(1);
   unmount();
 });
 

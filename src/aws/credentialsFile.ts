@@ -66,8 +66,19 @@ export function parseCredentials(text: string): Record<string, CredentialEntry> 
  *
  * `section` is the full bracket name, so this serves ~/.aws/credentials
  * (`prod`) and ~/.aws/config (`profile prod`) alike.
+ *
+ * Keys listed in `remove` are dropped from the section unless `entries` sets
+ * them. Merging alone is wrong when the new entries redefine what a profile
+ * *is*: writing an SSO profile over a `role_arn` one left both key sets in
+ * place, and the reader takes `role_arn` first — so the profile the user was
+ * told had been added was not the profile awssesh went on to use.
  */
-export function upsertProfile(text: string, section: string, entries: CredentialEntry): string {
+export function upsertProfile(
+  text: string,
+  section: string,
+  entries: CredentialEntry,
+  remove: readonly string[] = [],
+): string {
   const lines = text.length === 0 ? [] : text.split("\n");
   const header = `[${section}]`;
 
@@ -98,14 +109,20 @@ export function upsertProfile(text: string, section: string, entries: Credential
 
   const body = lines.slice(start + 1, end);
   const remaining = new Map(Object.entries(entries));
+  const drop = new Set(remove.filter((key) => !(key in entries)));
 
-  const rewritten = body.map((line) => {
-    const key = keyOf(line);
-    if (key === null || !remaining.has(key)) return line;
-    const value = remaining.get(key)!;
-    remaining.delete(key);
-    return `${key} = ${value}`;
-  });
+  const rewritten = body
+    .filter((line) => {
+      const key = keyOf(line);
+      return key === null || !drop.has(key);
+    })
+    .map((line) => {
+      const key = keyOf(line);
+      if (key === null || !remaining.has(key)) return line;
+      const value = remaining.get(key)!;
+      remaining.delete(key);
+      return `${key} = ${value}`;
+    });
 
   // Append keys the section did not already have, before its trailing blank lines.
   let insertAt = rewritten.length;
@@ -136,7 +153,24 @@ function trimTrailingBlank(lines: string[]): string[] {
  */
 export const EXPIRY_KEY = "x_security_token_expires";
 
-export async function writeCredentials(profileName: string, credentials: AWSCredentials): Promise<void> {
+/**
+ * Writes are queued, because each one reads the whole file, edits a section and
+ * writes it back: two overlapping writers would each start from the same text
+ * and the loser's section would silently revert. The TUI has real concurrency
+ * here — the 30s auto-refresh tick and a keypress both write.
+ *
+ * This orders writers inside one process; a second awssesh running at the same
+ * instant is still on its own, as it is for every tool that edits this file.
+ */
+let writeQueue: Promise<void> = Promise.resolve();
+
+export function writeCredentials(profileName: string, credentials: AWSCredentials): Promise<void> {
+  const write = writeQueue.then(() => writeCredentialsNow(profileName, credentials));
+  writeQueue = write.catch(() => {});
+  return write;
+}
+
+async function writeCredentialsNow(profileName: string, credentials: AWSCredentials): Promise<void> {
   const existing = await readFile(credentialsPath(), "utf8").catch(() => "");
 
   const next = upsertProfile(existing, profileName, {
