@@ -1,21 +1,58 @@
-import { discoverProfiles, findCachedToken, readProfileCredentials, type SSOProfile } from "./sso.js";
+import { credentialsAreFresh } from "./credentials.js";
+import { readProfileCredentials } from "./credentialsFile.js";
+import {
+  discoverProfiles,
+  profileAccountId,
+  sessionOf,
+  type Profile,
+  type SSOProfile,
+} from "./profiles.js";
 import { loadSettings } from "./settings.js";
+import { findCachedToken } from "./sso.js";
 
-export type ProfileStatusKind = "valid" | "expired" | "needs-login" | "error" | "refreshing";
+export type ProfileStatusKind = "valid" | "expired" | "needs-login" | "needs-mfa" | "error" | "refreshing";
 
 export interface ProfileState {
   name: string;
+  kind: Profile["kind"];
   status: ProfileStatusKind;
   /**
    * When the thing that expires next runs out: the role credentials if awssesh
    * knows their expiry, otherwise the SSO token. ISO string, or null.
    */
   expiresAt: string | null;
+  /**
+   * When the stored credentials expire — null when there are none.
+   *
+   * Distinct from `expiresAt`, which falls back to the token: a screen that
+   * says "creds" has to be able to say there are none, rather than quoting the
+   * login's clock as if credentials had been fetched.
+   */
+  credentialsExpireAt: string | null;
   /** SSO token expiry — when the next interactive browser login is due. */
   ssoExpiresAt: string | null;
   favorite: boolean;
   accountId?: string;
   error?: string;
+}
+
+/** Guards against a `source_profile` cycle that config alone cannot rule out. */
+const MAX_CHAIN_DEPTH = 8;
+
+/**
+ * The SSO profile a chain ultimately logs in through, if it has one.
+ *
+ * A chain rooted in long-lived IAM keys instead returns null: nothing about it
+ * expires interactively, so it must never be reported as needing a login.
+ */
+export function rootSSOProfile(profile: Profile, all: Profile[]): SSOProfile | null {
+  let current: Profile | undefined = profile;
+  for (let depth = 0; current && depth < MAX_CHAIN_DEPTH; depth++) {
+    if (current.kind === "sso") return current;
+    const sourceName: string = current.sourceProfile;
+    current = all.find((p) => p.name === sourceName);
+  }
+  return null;
 }
 
 /**
@@ -27,20 +64,36 @@ export interface ProfileState {
  * made the countdown jump from "58m" up to the token's "7h 58m" until the next
  * tick corrected it.
  */
-export async function buildProfileState(profile: SSOProfile, favorite: boolean, now: Date): Promise<ProfileState> {
-  const cachedToken = await findCachedToken(profile);
-  const ssoValid = cachedToken !== null && cachedToken.expiresAt > now;
-  const credsExpireAt = readProfileCredentials(profile.name)?.expiresAt ?? null;
+export async function buildProfileState(
+  profile: Profile,
+  all: Profile[],
+  favorite: boolean,
+  now: Date,
+): Promise<ProfileState> {
+  const root = rootSSOProfile(profile, all);
+  const cachedToken = root ? await findCachedToken(sessionOf(root)) : null;
+  const ssoValid = root === null || (cachedToken !== null && cachedToken.expiresAt > now);
+  const creds = readProfileCredentials(profile.name);
   const ssoExpiresAt = cachedToken ? cachedToken.expiresAt.toISOString() : null;
 
   return {
     name: profile.name,
-    status: ssoValid ? "valid" : "needs-login",
-    expiresAt: credsExpireAt ? credsExpireAt.toISOString() : ssoExpiresAt,
+    kind: profile.kind,
+    status: status(profile, ssoValid, creds ? credentialsAreFresh(creds, 0, now.getTime()) : false),
+    expiresAt: creds?.expiresAt?.toISOString() ?? ssoExpiresAt,
+    credentialsExpireAt: creds?.expiresAt?.toISOString() ?? null,
     ssoExpiresAt,
     favorite,
-    accountId: profile.ssoAccountId,
+    accountId: profileAccountId(profile),
   };
+}
+
+function status(profile: Profile, ssoValid: boolean, credsFresh: boolean): ProfileStatusKind {
+  if (!ssoValid) return "needs-login";
+  // An MFA-gated profile cannot be refreshed silently, so say so up front
+  // rather than looking healthy until the user asks for credentials.
+  if (profile.kind === "assume" && profile.mfaSerial && !credsFresh) return "needs-mfa";
+  return "valid";
 }
 
 /**
@@ -52,5 +105,5 @@ export async function buildLocalProfileStates(): Promise<ProfileState[]> {
   const favorites = new Set(loadSettings().favoriteProfiles);
   const now = new Date();
   const profiles = await discoverProfiles();
-  return Promise.all(profiles.map((p) => buildProfileState(p, favorites.has(p.name), now)));
+  return Promise.all(profiles.map((p) => buildProfileState(p, profiles, favorites.has(p.name), now)));
 }

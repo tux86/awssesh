@@ -31,6 +31,18 @@ function hexAt(x: number): string {
   return lerp(SESH_A, SESH_B, span > 0 ? (x - SESH_AT) / span : 0);
 }
 
+/** One-line wordmark, for terminals too short to spend five rows on a logo. */
+export function WordmarkLine() {
+  return (
+    <Text>
+      <Text bold color={hexAt(0)}>
+        awssesh
+      </Text>
+      <Text dimColor>{`  v${VERSION}`}</Text>
+    </Text>
+  );
+}
+
 export function Wordmark() {
   return (
     <Box flexDirection="column">

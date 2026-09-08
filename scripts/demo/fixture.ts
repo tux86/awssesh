@@ -7,7 +7,7 @@
  * "expires" countdowns are accurate at record time.
  *
  * awssesh derives a profile's state purely from local disk:
- *   - discoverProfiles()    reads ~/.aws/config
+ *   - discoverProfiles()    reads ~/.aws/config (SSO and chained role profiles)
  *   - findCachedToken()     reads ~/.aws/sso/cache/<sha1(session)>.json
  *   - buildLocalProfileStates(): valid (future-dated token) | needs-login (no token)
  *   - readProfileCredentials() reads ~/.aws/credentials (for `c` copy-export),
@@ -65,6 +65,44 @@ const PROFILES: Profile[] = [
   { name: "labs-ml-research", session: "labs", accountId: "612087340912", roleName: "MLResearcher", region: "eu-west-1", favorite: false },
 ];
 
+// ── Chained profiles (role_arn + source_profile) ─────────────────────────────
+// Appended after the SSO profiles so they sit at the end of the dashboard: the
+// tape's cursor beats above stay on the profiles they were choreographed for.
+interface ChainedProfile {
+  name: string;
+  /** The profile whose credentials sign the AssumeRole call. */
+  sourceProfile: string;
+  roleArn: string;
+  region: string;
+  /** Set to gate the role on an MFA code, which awssesh prompts for. */
+  mfaSerial?: string;
+  /** Minutes of life left on the assumed credentials; null = none on disk yet. */
+  credsMinutes: number | null;
+  favorite: boolean;
+}
+
+const CHAINED: ChainedProfile[] = [
+  {
+    name: "acme-security-audit",
+    sourceProfile: "acme-prod-readonly",
+    roleArn: "arn:aws:iam::604915237781:role/SecurityAudit",
+    region: "eu-west-1",
+    credsMinutes: 41,
+    favorite: false,
+  },
+  {
+    // No credentials on disk and an MFA device attached, so it shows the
+    // needs-mfa state a chained role sits in until someone types a code.
+    name: "acme-break-glass",
+    sourceProfile: "acme-prod-admin",
+    roleArn: "arn:aws:iam::481516234299:role/BreakGlass",
+    region: "eu-west-1",
+    mfaSerial: "arn:aws:iam::481516234299:mfa/dana",
+    credsMinutes: null,
+    favorite: false,
+  },
+];
+
 // ── Render ~/.aws/config ────────────────────────────────────────────────────
 function buildConfig(): string {
   const blocks: string[] = [];
@@ -84,6 +122,16 @@ function buildConfig(): string {
       `sso_account_id = ${p.accountId}`,
       `sso_role_name = ${p.roleName}`,
       `region = ${p.region}`,
+      "",
+    );
+  }
+  for (const c of CHAINED) {
+    blocks.push(
+      `[profile ${c.name}]`,
+      `role_arn = ${c.roleArn}`,
+      `source_profile = ${c.sourceProfile}`,
+      ...(c.mfaSerial ? [`mfa_serial = ${c.mfaSerial}`] : []),
+      `region = ${c.region}`,
       "",
     );
   }
@@ -130,6 +178,17 @@ function buildCredentials(): string {
       "",
     );
   }
+  for (const c of CHAINED) {
+    if (c.credsMinutes === null) continue; // never assumed yet
+    lines.push(
+      `[${c.name}]`,
+      `aws_access_key_id = ASIA${c.roleArn.slice(-8, -4).toUpperCase()}DEMOKEYCHAIN`,
+      `aws_secret_access_key = wJalrXUtnFEMI/demo/${c.name}/EXAMPLEKEY`,
+      `aws_session_token = FQoGZXIvYXdz${c.name.replace(/-/g, "")}EXAMPLEsessiontoken`,
+      `x_security_token_expires = ${iso(c.credsMinutes * MIN)}`,
+      "",
+    );
+  }
   return lines.join("\n");
 }
 
@@ -139,7 +198,7 @@ function buildSettings(): string {
     {
       notifications: true,
       refreshLeadMinutes: 5,
-      favoriteProfiles: PROFILES.filter((p) => p.favorite).map((p) => p.name),
+      favoriteProfiles: [...PROFILES, ...CHAINED].filter((p) => p.favorite).map((p) => p.name),
     },
     null,
     2,
@@ -156,4 +215,8 @@ writeFileSync(join(AWS_DIR, "credentials-manager.json"), buildSettings());
 writeTokenCaches();
 
 console.log(`Demo fixture written to ${dirname(AWS_DIR)}`);
-console.log(`  ${PROFILES.length} profiles · ${SESSIONS.filter((s) => s.tokenMinutes !== null).length} signed-in sessions · ${PROFILES.filter((p) => p.favorite).length} favorites`);
+console.log(
+  `  ${PROFILES.length} SSO + ${CHAINED.length} chained profiles · ` +
+    `${SESSIONS.filter((s) => s.tokenMinutes !== null).length} signed-in sessions · ` +
+    `${[...PROFILES, ...CHAINED].filter((p) => p.favorite).length} favorites`,
+);

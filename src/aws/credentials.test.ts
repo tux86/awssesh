@@ -3,9 +3,10 @@ import { mkdtempSync, rmSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import * as sso from "./sso";
+import * as creds from "./credentialsFile";
+import { credentialsAreFresh } from "./credentials";
 
-// Each test gets its own sandboxed HOME. sso.ts resolves the AWS paths per
+// Each test gets its own sandboxed HOME. the AWS paths are resolved per
 // call, so simply pointing HOME at a fresh directory is enough to isolate it.
 let home: string;
 let prevHome: string | undefined;
@@ -28,7 +29,7 @@ const CREDS = {
 };
 
 test("credentials are written in the dialect the AWS CLI parses", async () => {
-  await sso.writeCredentials("prod", CREDS);
+  await creds.writeCredentials("prod", CREDS);
 
   const raw = readFileSync(CREDENTIALS(), "utf8");
   // The AWS parsers take everything after the first '=' verbatim, so any
@@ -41,47 +42,47 @@ test("credentials are written in the dialect the AWS CLI parses", async () => {
 });
 
 test("the credentials file is not world-readable", async () => {
-  await sso.writeCredentials("prod", CREDS);
+  await creds.writeCredentials("prod", CREDS);
   const mode = statSync(CREDENTIALS()).mode & 0o777;
   expect(mode).toBe(0o600);
 });
 
 test("expiry round-trips so stale credentials can be detected later", async () => {
   const expiration = new Date(Date.now() + 3_600_000);
-  await sso.writeCredentials("prod", { ...CREDS, expiration });
+  await creds.writeCredentials("prod", { ...CREDS, expiration });
 
-  const read = sso.readProfileCredentials("prod");
+  const read = creds.readProfileCredentials("prod");
   expect(read?.expiresAt?.getTime()).toBe(expiration.getTime());
-  expect(sso.credentialsAreFresh(read)).toBe(true);
+  expect(credentialsAreFresh(read)).toBe(true);
 });
 
 test("expired credentials are never treated as fresh", async () => {
-  await sso.writeCredentials("prod", { ...CREDS, expiration: new Date(Date.now() - 1000) });
-  expect(sso.credentialsAreFresh(sso.readProfileCredentials("prod"))).toBe(false);
+  await creds.writeCredentials("prod", { ...CREDS, expiration: new Date(Date.now() - 1000) });
+  expect(credentialsAreFresh(creds.readProfileCredentials("prod"))).toBe(false);
 });
 
 test("credentials expiring inside the lead window are refreshed rather than handed out", async () => {
-  await sso.writeCredentials("prod", { ...CREDS, expiration: new Date(Date.now() + 30_000) });
-  expect(sso.credentialsAreFresh(sso.readProfileCredentials("prod"), 60_000)).toBe(false);
+  await creds.writeCredentials("prod", { ...CREDS, expiration: new Date(Date.now() + 30_000) });
+  expect(credentialsAreFresh(creds.readProfileCredentials("prod"), 60_000)).toBe(false);
 });
 
 test("credentials with no recorded expiry are not trusted", async () => {
-  await sso.writeCredentials("prod", CREDS); // no expiration supplied
-  const read = sso.readProfileCredentials("prod");
+  await creds.writeCredentials("prod", CREDS); // no expiration supplied
+  const read = creds.readProfileCredentials("prod");
   expect(read).not.toBeNull();
   expect(read!.expiresAt).toBeNull();
-  expect(sso.credentialsAreFresh(read)).toBe(false);
+  expect(credentialsAreFresh(read)).toBe(false);
 });
 
 test("writing one profile leaves other profiles intact", async () => {
-  await sso.writeCredentials("prod", CREDS);
-  await sso.writeCredentials("dev", { ...CREDS, accessKeyId: "ASIADEV" });
+  await creds.writeCredentials("prod", CREDS);
+  await creds.writeCredentials("dev", { ...CREDS, accessKeyId: "ASIADEV" });
 
-  expect(sso.readProfileCredentials("prod")?.accessKeyId).toBe("ASIAEXAMPLE");
-  expect(sso.readProfileCredentials("dev")?.accessKeyId).toBe("ASIADEV");
+  expect(creds.readProfileCredentials("prod")?.accessKeyId).toBe("ASIAEXAMPLE");
+  expect(creds.readProfileCredentials("dev")?.accessKeyId).toBe("ASIADEV");
 });
 
 test("readProfileCredentials returns null for an unknown profile", async () => {
-  await sso.writeCredentials("prod", CREDS);
-  expect(sso.readProfileCredentials("nope")).toBeNull();
+  await creds.writeCredentials("prod", CREDS);
+  expect(creds.readProfileCredentials("nope")).toBeNull();
 });

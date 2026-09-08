@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  buildProfileState,
-  type ProfileState,
-} from "../../aws/profileState.js";
+import { readProfileCredentials } from "../../aws/credentialsFile.js";
+import { buildProfileState, type ProfileState } from "../../aws/profileState.js";
+import { discoverProfiles, type Profile } from "../../aws/profiles.js";
+import { refreshProfile, type CredentialsOutcome } from "../../aws/refresh.js";
 import { decideAction } from "../../aws/refreshScheduler.js";
-import { discoverProfiles, findCachedToken, readProfileCredentials, refreshProfile } from "../../aws/sso.js";
 import { saveSettings, type AppSettings } from "../../aws/settings.js";
 
 /** How often the in-process loop checks favorites for due refreshes. */
@@ -12,8 +11,12 @@ const TICK_MS = 30_000;
 
 export interface AutoRefreshView {
   profiles: ProfileState[];
+  /** False until the first pass over ~/.aws/config has finished. */
+  ready: boolean;
+  /** The profiles as configured, for the screens that need more than their state. */
+  configured: Profile[];
   reload: () => Promise<void>;
-  refreshOne: (name: string) => Promise<{ needsLogin: boolean; ok: boolean; error?: string }>;
+  refreshOne: (name: string, mfaCodes?: Record<string, string>) => Promise<CredentialsOutcome>;
   /** Toggle ⟳ for a profile, persist it, and return the resulting settings. */
   setFavorite: (name: string) => AppSettings;
 }
@@ -21,7 +24,7 @@ export interface AutoRefreshView {
 /**
  * In-process auto-refresh for the TUI. While the dashboard is open it keeps the
  * ⟳ (favorite) profiles fresh: every tick it decides, per favorite, whether the
- * cached role credentials are due for a silent refresh and performs it,
+ * cached credentials are due for a silent refresh and performs it,
  * expiry-aware — entirely in-process, no background process or sockets.
  *
  * Both the periodic tick and the on-demand reload derive their view from disk
@@ -33,7 +36,16 @@ export function useAutoRefresh(
   onNeedsLogin?: (name: string) => void,
 ): AutoRefreshView {
   const [profiles, setProfiles] = useState<ProfileState[]>([]);
+  const [configured, setConfigured] = useState<Profile[]>([]);
+  const [ready, setReady] = useState(false);
   const notified = useRef(new Set<string>());
+  /**
+   * Which pass is the current one. A tick refreshes profiles over the network
+   * and can outlive a later reload — toggling ⟳ during a slow tick used to see
+   * the marker flip back, because the tick finished last with flags it had
+   * snapshotted before the toggle.
+   */
+  const generation = useRef(0);
 
   // Keep the latest settings + callback in refs so the interval closure always
   // reads current values without resubscribing the timer.
@@ -53,6 +65,7 @@ export function useAutoRefresh(
   /** Recompute every profile from disk, refreshing the favorites that are due. */
   const sync = useCallback(
     async ({ refreshDue }: { refreshDue: boolean }) => {
+      const pass = ++generation.current;
       const s = settingsRef.current;
       const leadMs = s.refreshLeadMinutes * 60 * 1000;
       const favorites = new Set(s.favoriteProfiles);
@@ -62,38 +75,34 @@ export function useAutoRefresh(
 
       for (const p of discovered) {
         const favorite = favorites.has(p.name);
-        let errorMsg: string | undefined;
-        let status: ProfileState["status"] | undefined;
+        let state = await buildProfileState(p, discovered, favorite, now);
 
-        if (refreshDue && favorite) {
-          const cachedToken = await findCachedToken(p);
-          const ssoTokenValid = cachedToken !== null && cachedToken.expiresAt > now;
+        // Only ⟳ profiles are touched, and only when they are actually due.
+        // A profile waiting on a login or an MFA code cannot be refreshed
+        // silently, so it is left alone until the user acts on it.
+        if (refreshDue && favorite && state.status === "needs-login") notifyOnce(p.name);
+        if (refreshDue && favorite && state.status === "valid") {
           const credsExpireAt = readProfileCredentials(p.name)?.expiresAt ?? null;
-          const action = decideAction({ ssoTokenValid, credsExpireAt }, now, leadMs);
+          if (decideAction(credsExpireAt, now, leadMs) === "refresh") {
+            const outcome = await refreshProfile(p, { profiles: discovered });
+            if (outcome.ok) notified.current.delete(p.name);
+            else if (outcome.reason === "needs-login") notifyOnce(outcome.profile.name);
 
-          if (action === "refresh") {
-            const r = await refreshProfile(p);
-            if (r.success) notified.current.delete(p.name);
-            else if (r.needsLogin) notifyOnce(p.name);
-            else {
-              status = "error";
-              errorMsg = r.error;
+            // Read back after the refresh, so the state reflects what is on disk.
+            state = await buildProfileState(p, discovered, favorite, new Date());
+            if (!outcome.ok && outcome.reason === "error") {
+              state = { ...state, status: "error", error: outcome.error };
             }
-          } else if (action === "needs-login") {
-            notifyOnce(p.name);
           }
         }
 
-        // Read back after any refresh, so the state reflects what is on disk.
-        const state = await buildProfileState(p, favorite, new Date());
-        states.push({
-          ...state,
-          ...(status !== undefined && { status }),
-          ...(errorMsg !== undefined && { error: errorMsg }),
-        });
+        states.push(state);
       }
 
+      if (generation.current !== pass) return; // superseded while we were away
       setProfiles(states);
+      setConfigured(discovered);
+      setReady(true);
     },
     [notifyOnce],
   );
@@ -116,20 +125,17 @@ export function useAutoRefresh(
     return () => clearInterval(id);
   }, [sync]);
 
-  // Refresh a single profile immediately (silent). Returns whether the caller
-  // should kick off an interactive device-auth flow.
+  /** Refresh a single profile now. The caller acts on whatever it still needs. */
   const refreshOne = useCallback(
-    async (name: string): Promise<{ needsLogin: boolean; ok: boolean; error?: string }> => {
-      const p = (await discoverProfiles()).find((x) => x.name === name);
-      if (!p) return { needsLogin: false, ok: false, error: "profile not found" };
+    async (name: string, mfaCodes?: Record<string, string>): Promise<CredentialsOutcome> => {
+      const discovered = await discoverProfiles();
+      const profile = discovered.find((p) => p.name === name);
+      if (!profile) return { ok: false, reason: "error", error: `${name} is no longer in ~/.aws/config` };
 
-      const r = await refreshProfile(p);
-      if (r.success) notified.current.delete(name);
+      const outcome = await refreshProfile(profile, { profiles: discovered, mfaCodes });
+      if (outcome.ok) notified.current.delete(name);
       await reload();
-
-      if (r.success) return { needsLogin: false, ok: true };
-      if (r.needsLogin) return { needsLogin: true, ok: false };
-      return { needsLogin: false, ok: false, error: r.error };
+      return outcome;
     },
     [reload],
   );
@@ -154,5 +160,5 @@ export function useAutoRefresh(
     [reload],
   );
 
-  return { profiles, reload, refreshOne, setFavorite };
+  return { profiles, ready, configured, reload, refreshOne, setFavorite };
 }

@@ -1,17 +1,17 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import type { ProfileState } from "../../aws/profileState.js";
+import { profileRegion, profileRoleName, type Profile } from "../../aws/profiles.js";
 import { formatClock, formatTimeLeft } from "../../aws/duration.js";
 import { Key, KeyBar } from "../components/KeyHint.js";
 import { Link } from "../components/Link.js";
-import { useContentWidth } from "../components/App.js";
+import { usePanelWidth } from "../components/App.js";
 import { useNow } from "../hooks/useNow.js";
 
 interface Props {
   profile: ProfileState;
-  roleName?: string;
-  region?: string;
-  startUrl?: string;
+  /** The profile as configured, for the fields that only ~/.aws/config knows. */
+  config?: Profile;
   onBack: () => void;
   onRefresh: (name: string) => void;
   onCopyExport: (name: string) => void;
@@ -27,6 +27,7 @@ const STATUS_COLOR: Record<ProfileState["status"], string> = {
   refreshing: "cyan",
   expired: "yellow",
   "needs-login": "yellow",
+  "needs-mfa": "yellow",
   error: "red",
 };
 
@@ -45,9 +46,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export function Details({
   profile,
-  roleName,
-  region,
-  startUrl,
+  config,
   onBack,
   onRefresh,
   onCopyExport,
@@ -56,7 +55,7 @@ export function Details({
   onToggleAuto,
 }: Props) {
   const now = useNow(1000);
-  const width = useContentWidth();
+  const width = usePanelWidth();
 
   useInput((input, key) => {
     if (key.escape || key.leftArrow || input === "q") onBack();
@@ -68,12 +67,13 @@ export function Details({
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Box borderStyle="round" borderColor="gray" paddingX={1} width={width} flexDirection="column">
         <Box marginBottom={1}>
           <Text bold color="cyan">
             {profile.name}
           </Text>
+          <Text dimColor>{profile.kind === "assume" ? "  assume-role" : "  sso"}</Text>
           {profile.favorite && <Text color="cyan">{"  ⟳ auto-refresh"}</Text>}
         </Box>
 
@@ -81,34 +81,48 @@ export function Details({
           <Text color={STATUS_COLOR[profile.status]}>{profile.status}</Text>
         </Row>
         <Row label="creds">
-          {/* Was a raw ISO timestamp; now the answer people actually want first. */}
-          {profile.expiresAt ? (
+          {/* Was a raw ISO timestamp; now the answer people actually want first.
+              Strictly the credentials' own clock: a profile that has never been
+              refreshed says so instead of echoing the login's expiry. */}
+          {profile.credentialsExpireAt ? (
             <Text>
-              {formatTimeLeft(profile.expiresAt, now)}
-              <Text dimColor>{`  (${formatClock(profile.expiresAt)})`}</Text>
+              {formatTimeLeft(profile.credentialsExpireAt, now)}
+              <Text dimColor>{`  (${formatClock(profile.credentialsExpireAt)})`}</Text>
             </Text>
           ) : (
-            <Text dimColor>—</Text>
+            <Text dimColor>none yet</Text>
           )}
         </Row>
         <Row label="sso login">
           {/* Distinct from the row above: role credentials last about an hour,
-              the SSO token many hours — this is when a browser login is due. */}
+              the SSO token many hours — this is when a browser login is due.
+              A chain rooted in long-lived IAM keys never needs one at all. */}
           {profile.ssoExpiresAt ? (
             <Text>
               {formatTimeLeft(profile.ssoExpiresAt, now)}
               <Text dimColor>{`  (${formatClock(profile.ssoExpiresAt)})`}</Text>
             </Text>
-          ) : (
+          ) : profile.status === "needs-login" ? (
             <Text color="yellow">required</Text>
+          ) : (
+            <Text dimColor>—</Text>
           )}
         </Row>
         <Row label="account">{profile.accountId ?? <Text dimColor>—</Text>}</Row>
-        <Row label="role">{roleName ?? <Text dimColor>—</Text>}</Row>
-        <Row label="region">{region ?? <Text dimColor>—</Text>}</Row>
-        <Row label="sso url">
-          {startUrl ? <Link url={startUrl} /> : <Text dimColor>—</Text>}
-        </Row>
+        <Row label="role">{(config && profileRoleName(config)) ?? <Text dimColor>—</Text>}</Row>
+        <Row label="region">{(config && profileRegion(config)) ?? <Text dimColor>—</Text>}</Row>
+        {config?.kind === "assume" ? (
+          <>
+            {/* Where the credentials that sign the AssumeRole call come from —
+                the first thing to check when a chained profile misbehaves. */}
+            <Row label="via">{config.sourceProfile}</Row>
+            {config.mfaSerial && <Row label="mfa">{config.mfaSerial}</Row>}
+          </>
+        ) : (
+          <Row label="sso url">
+            {config?.kind === "sso" ? <Link url={config.ssoStartUrl} /> : <Text dimColor>—</Text>}
+          </Row>
+        )}
         {profile.error && (
           <Box marginTop={1}>
             <Text color="red">{`✗ ${profile.error}`}</Text>
@@ -116,7 +130,10 @@ export function Details({
         )}
       </Box>
 
-      <Box marginTop={1}>
+      {/* Pushes the hints to the bottom of the screen, where they stay put. */}
+      <Box flexGrow={1} />
+
+      <Box>
         <KeyBar>
         <Key k="r">refresh</Key>
         <Key k="c">copy env</Key>

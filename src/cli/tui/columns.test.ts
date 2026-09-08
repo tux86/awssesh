@@ -1,24 +1,25 @@
 import { test, expect } from "bun:test";
-import { layoutColumns, viewport, W_MARKER, W_STATUS, W_EXPIRES, W_ACCOUNT } from "./columns";
+import { layoutColumns, tableWidth, viewport, W_MARKER, W_STATUS } from "./columns";
 
 test("a wide terminal shows every column and a roomy name", () => {
-  const layout = layoutColumns(100);
-  expect(layout).toMatchObject({ showExpires: true, showAccount: true });
+  const layout = layoutColumns(120);
+  expect(layout).toMatchObject({ showType: true, showExpires: true, showAccount: true });
   expect(layout.name).toBeGreaterThanOrEqual(30);
 });
 
 test("columns are dropped least-important-first as the terminal narrows", () => {
-  expect(layoutColumns(64)).toMatchObject({ showExpires: true, showAccount: true });
+  // TYPE goes first: it is the one column the details view repeats in full.
+  expect(layoutColumns(80)).toMatchObject({ showType: true, showExpires: true, showAccount: true });
+  expect(layoutColumns(62)).toMatchObject({ showType: false, showExpires: true, showAccount: true });
   expect(layoutColumns(48)).toMatchObject({ showExpires: true, showAccount: false });
   expect(layoutColumns(26)).toMatchObject({ showExpires: false, showAccount: false });
 });
 
 test("the rendered row never exceeds the width it was given", () => {
-  for (let width = 24; width <= 120; width++) {
-    const l = layoutColumns(width);
-    const used =
-      W_MARKER + W_STATUS + l.name + (l.showExpires ? W_EXPIRES : 0) + (l.showAccount ? W_ACCOUNT : 0);
-    expect(used).toBeLessThanOrEqual(Math.max(width, W_MARKER + W_STATUS + 10));
+  for (let width = 24; width <= 200; width++) {
+    expect(tableWidth(layoutColumns(width))).toBeLessThanOrEqual(
+      Math.max(width, W_MARKER + W_STATUS + 10),
+    );
   }
 });
 
