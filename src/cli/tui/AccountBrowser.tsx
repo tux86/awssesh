@@ -23,6 +23,9 @@ interface Props {
   getToken: (session: SSOSession) => Promise<string | null>;
   onCreated: (profileName: string) => void;
   onBack: () => void;
+  /** The listings themselves, injectable so the flow can be driven without a portal. */
+  fetchAccounts?: (session: SSOSession, accessToken: string) => Promise<SSOAccount[]>;
+  fetchRoles?: (session: SSOSession, accessToken: string, accountId: string) => Promise<string[]>;
 }
 
 type Step = "session" | "loading" | "accounts" | "roles" | "name" | "error";
@@ -37,6 +40,8 @@ export function AccountBrowser({
   getToken,
   onCreated,
   onBack,
+  fetchAccounts = listAccounts,
+  fetchRoles = listAccountRoles,
 }: Props) {
   const [step, setStep] = useState<Step>(sessions.length === 1 ? "loading" : "session");
   const [message, setMessage] = useState("Loading accounts…");
@@ -73,7 +78,7 @@ export function AccountBrowser({
 
       setMessage("Loading accounts…");
       try {
-        const found = await listAccounts(chosen, accessToken);
+        const found = await fetchAccounts(chosen, accessToken);
         if (!alive.current) return;
         if (found.length === 0) return fail("This SSO portal grants you no accounts.");
         setAccounts(found);
@@ -82,7 +87,7 @@ export function AccountBrowser({
         fail(error instanceof Error ? error.message : "Could not list accounts.");
       }
     },
-    [getToken, fail],
+    [getToken, fail, fetchAccounts],
   );
 
   // With a single portal there is nothing to choose, so go straight to it.
@@ -100,7 +105,7 @@ export function AccountBrowser({
       setMessage(`Loading roles in ${describeAccount(chosen)}…`);
       setStep("loading");
       try {
-        const found = await listAccountRoles(session, token.current, chosen.accountId);
+        const found = await fetchRoles(session, token.current, chosen.accountId);
         if (!alive.current) return;
         if (found.length === 0) return fail(`You have no roles in ${describeAccount(chosen)}.`);
         setRoles(found);
@@ -109,7 +114,7 @@ export function AccountBrowser({
         fail(error instanceof Error ? error.message : "Could not list roles.");
       }
     },
-    [accounts, session, fail],
+    [accounts, session, fail, fetchRoles],
   );
 
   const openRole = useCallback(

@@ -211,7 +211,7 @@ bun run start    # Run from source
 bun run dev      # Run with --watch (auto-restart on changes)
 bun run build    # Build the Node CLI bundle (dist/cli.js)
 bun run lint     # Run ESLint
-bun test         # Run unit tests
+bun test         # Run unit tests (incl. Ink component tests)
 bun run typecheck  # Typecheck
 ```
 

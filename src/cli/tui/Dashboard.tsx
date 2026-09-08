@@ -33,6 +33,9 @@ interface Props {
 /** Marker shown for auto-refreshed (favorite) profiles. */
 const AUTO_MARKER = "⟳";
 
+/** Statuses a human has to act on: a browser login, an MFA code, or a failure. */
+const NEEDS_USER = new Set<ProfileStatusKind>(["needs-login", "needs-mfa", "error"]);
+
 /** Vertical space the surrounding chrome needs; the rest is list rows. */
 const CHROME_ROWS = 19;
 
@@ -253,7 +256,7 @@ export function Dashboard(props: Props) {
   }
 
   const autoCount = profiles.filter((p) => p.favorite).length;
-  const attentionCount = profiles.filter((p) => p.status === "needs-login" || p.status === "error").length;
+  const attentionCount = profiles.filter((p) => NEEDS_USER.has(p.status)).length;
 
   return (
     <Box flexDirection="column">

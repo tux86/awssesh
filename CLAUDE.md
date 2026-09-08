@@ -51,6 +51,7 @@ awssesh/
 │       │   ├── columns.ts     # Responsive table layout + viewport maths
 │       │   ├── useDeviceAuth.ts  # Hook: one device-auth flow at a time
 │       │   └── useAutoRefresh.ts # Hook: in-process auto-refresh for ⟳ profiles
+│       ├── testKeys.ts        # Key sequences + tick helper for component tests
 │       ├── components/        # Shared Ink UI components
 │       │   ├── App.tsx        # Root container + responsive width
 │       │   ├── ActionBar.tsx  # Bottom action bar + ACTIONS constant
@@ -94,7 +95,7 @@ bun run start         # Run CLI
 bun run dev           # Run CLI with --watch (auto-restart on changes)
 bun run build         # Build the Node CLI bundle (`dist/cli.js`)
 bun run lint          # Run ESLint
-bun test              # Run unit tests
+bun test              # Run unit tests (includes Ink component tests)
 bun run typecheck     # Typecheck
 ```
 
@@ -137,6 +138,16 @@ awssesh --help
 | `?` | Keyboard shortcut help |
 | `Esc` | Back, or clear an active filter |
 | `q` | Quit |
+
+## Testing
+
+Three layers, all offline:
+
+- **Pure logic** — parsing, chain resolution, renderers, arg parsing. Plain unit tests.
+- **Seams instead of mocks** — `refreshProfile`/`ensureCredentials` take a `providers` object (SSO + AssumeRole), `resolveCredentials` takes its prompts, and `AccountBrowser` takes its listings. Pass fakes in tests; the defaults are the real thing. **Do not use `mock.module`**: Bun shares one process across test files, so a module mock in one file breaks the others.
+- **Components** — rendered with `ink-testing-library`, driven by real key sequences from `src/cli/testKeys.ts`. `stdin.write()` then `await tick()` before asserting on `lastFrame()`; one `write` is one input event, so send keys separately when the component reads them one at a time.
+
+Anything that talks to AWS (`client.send`) is deliberately a single line at the edge of a module, so everything around it is testable without a network.
 
 ## Commits & Releases
 
