@@ -48,11 +48,42 @@ const cacheToken = (expiresAt: Date) =>
     expiresAt,
   });
 
-test("a valid portal token makes an SSO profile valid", async () => {
+test("a valid login is not by itself valid credentials", async () => {
   await cacheToken(new Date(NOW.getTime() + 8 * 3_600_000));
   const state = await profileState.buildProfileState(DEV, [DEV], true, NOW);
-  expect(state).toMatchObject({ name: "dev", kind: "sso", status: "valid", favorite: true, accountId: "111111111111" });
+
+  // The login is good, so nothing here needs a browser — but there are no
+  // usable credentials yet, and saying "valid" would promise otherwise.
+  expect(state).toMatchObject({ name: "dev", kind: "sso", status: "expired", favorite: true, accountId: "111111111111" });
   expect(state.ssoExpiresAt).not.toBeNull();
+});
+
+test("fresh credentials are what make a profile valid", async () => {
+  await cacheToken(new Date(NOW.getTime() + 8 * 3_600_000));
+  await credentialsFile.writeCredentials("dev", {
+    accessKeyId: "ASIA",
+    secretAccessKey: "s",
+    sessionToken: "t",
+    expiration: new Date(NOW.getTime() + 3_600_000),
+  });
+
+  expect((await profileState.buildProfileState(DEV, [DEV], true, NOW)).status).toBe("valid");
+});
+
+test("a row never says valid while its countdown says expired", async () => {
+  await cacheToken(new Date(NOW.getTime() + 8 * 3_600_000));
+  await credentialsFile.writeCredentials("dev", {
+    accessKeyId: "ASIA",
+    secretAccessKey: "s",
+    sessionToken: "t",
+    expiration: new Date(NOW.getTime() - 60_000), // an hour-old refresh
+  });
+
+  // The two columns are drawn from one fact now. They used to come from two:
+  // the status from the login, the countdown from the credentials.
+  const state = await profileState.buildProfileState(DEV, [DEV], false, NOW);
+  expect(state.status).toBe("expired");
+  expect(new Date(state.expiresAt!).getTime()).toBeLessThan(NOW.getTime());
 });
 
 test("role credentials, not the portal token, drive the countdown", async () => {
@@ -65,24 +96,24 @@ test("role credentials, not the portal token, drive the countdown", async () => 
   });
   const state = await profileState.buildProfileState(DEV, [DEV], false, NOW);
   expect(state.expiresAt).toBe(expiration.toISOString());
-  expect(state.credentialsExpireAt).toBe(expiration.toISOString());
   expect(state.ssoExpiresAt).not.toBe(state.expiresAt);
 });
 
-test("a profile with no credentials has no credential expiry, only a token one", async () => {
+test("a profile with no credentials reports no expiry of its own", async () => {
   await cacheToken(new Date(NOW.getTime() + 8 * 3_600_000));
   const fresh: SSOProfile = { ...DEV, name: "never-fetched" };
   const state = await profileState.buildProfileState(fresh, [fresh], false, NOW);
 
-  expect(state.credentialsExpireAt).toBeNull();
-  // The dashboard column still falls back to the token — it shows whatever
-  // expires next — but the two are no longer the same field.
-  expect(state.expiresAt).toBe(state.ssoExpiresAt);
+  // Quoting the login's clock here is what produced "valid · expired": the
+  // countdown has to be the credentials' own, or null.
+  expect(state.expiresAt).toBeNull();
+  expect(state.ssoExpiresAt).not.toBeNull();
+  expect(state.status).toBe("expired");
 });
 
 test("a chained profile inherits the login state of the SSO profile it roots at", async () => {
   const state = await profileState.buildProfileState(CHAINED, [DEV, CHAINED], false, NOW);
-  expect(state).toMatchObject({ kind: "assume", status: "valid", accountId: "333333333333" });
+  expect(state).toMatchObject({ kind: "assume", status: "expired", accountId: "333333333333" });
 
   await cacheToken(new Date(NOW.getTime() - 1000));
   const expired = await profileState.buildProfileState(CHAINED, [DEV, CHAINED], false, NOW);
@@ -92,7 +123,8 @@ test("a chained profile inherits the login state of the SSO profile it roots at"
 test("a chain rooted in long-lived IAM keys never asks for a browser login", async () => {
   const standalone: AssumeProfile = { ...CHAINED, name: "iam-chained", sourceProfile: "static" };
   const state = await profileState.buildProfileState(standalone, [standalone], false, NOW);
-  expect(state.status).toBe("valid");
+  // Due for a refresh, but never for a login: there is no portal behind it.
+  expect(state.status).toBe("expired");
   expect(state.ssoExpiresAt).toBeNull();
 });
 

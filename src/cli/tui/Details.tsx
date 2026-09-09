@@ -25,7 +25,10 @@ const LABEL_WIDTH = 12;
 const STATUS_COLOR: Record<ProfileState["status"], string> = {
   valid: "green",
   refreshing: "cyan",
-  expired: "yellow",
+  // Grey, not yellow: with the login still good, expired credentials are the
+  // resting state of any profile nobody pinned, and one keypress from fixed.
+  // Yellow is kept for the states that need a human in a browser.
+  expired: "gray",
   "needs-login": "yellow",
   "needs-mfa": "yellow",
   error: "red",
@@ -84,10 +87,10 @@ export function Details({
           {/* Was a raw ISO timestamp; now the answer people actually want first.
               Strictly the credentials' own clock: a profile that has never been
               refreshed says so instead of echoing the login's expiry. */}
-          {profile.credentialsExpireAt ? (
+          {profile.expiresAt ? (
             <Text>
-              {formatTimeLeft(profile.credentialsExpireAt, now)}
-              <Text dimColor>{`  (${formatClock(profile.credentialsExpireAt)})`}</Text>
+              {formatTimeLeft(profile.expiresAt, now)}
+              <Text dimColor>{`  (${formatClock(profile.expiresAt)})`}</Text>
             </Text>
           ) : (
             <Text dimColor>none yet</Text>

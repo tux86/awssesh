@@ -81,7 +81,9 @@ export function useAutoRefresh(
         // A profile waiting on a login or an MFA code cannot be refreshed
         // silently, so it is left alone until the user acts on it.
         if (refreshDue && favorite && state.status === "needs-login") notifyOnce(p.name);
-        if (refreshDue && favorite && state.status === "valid") {
+        // "expired" is the state a due profile is usually in — refreshing only
+        // the ones already reported as valid would mean never refreshing.
+        if (refreshDue && favorite && (state.status === "valid" || state.status === "expired")) {
           const credsExpireAt = readProfileCredentials(p.name)?.expiresAt ?? null;
           if (decideAction(credsExpireAt, now, leadMs) === "refresh") {
             const outcome = await refreshProfile(p, { profiles: discovered });

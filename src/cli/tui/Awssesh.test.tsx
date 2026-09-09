@@ -97,6 +97,26 @@ test("the way out is explained rather than silent", async () => {
   unmount();
 });
 
+test("a login started from a profile's details lands back on the list", async () => {
+  await cacheToken(null); // the profile needs a login
+  const { stdin, lastFrame, unmount } = render(<Awssesh />);
+  await waitForFrame(lastFrame, "PROFILE");
+
+  stdin.write(KEYS.enter); // open details
+  await waitForFrame(lastFrame, "sso login");
+
+  stdin.write("r"); // which needs a login first
+  await waitForFrame(lastFrame, "SSO login required");
+
+  stdin.write(KEYS.escape);
+  await waitForFrame(lastFrame, "PROFILE");
+
+  // Not back on the details screen the login interrupted: the list is where
+  // the result of a login is worth seeing.
+  expect(lastFrame()).not.toContain("sso login");
+  unmount();
+});
+
 test("the header carries the standing summary of what needs a human", async () => {
   await cacheToken(null);
   const { lastFrame, unmount } = render(<Awssesh />);
