@@ -58,8 +58,18 @@ jobs:
 
   publish:
     name: Publish to npm (manual)
-    if: github.event_name == 'workflow_dispatch'
+    # Only from main. `workflow_dispatch` runs the workflow file belonging to
+    # whichever ref is chosen, so this guard stops an accidental publish from a
+    # stale branch — it is NOT a security boundary: anyone able to push a branch
+    # can push one without the guard. What actually scopes NPM_TOKEN is holding
+    # it in a protected environment (or dropping the long-lived token for npm's
+    # OIDC trusted publishing).
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Publishing reads the repo and talks to npm; it has no business writing
+    # back here, so it does not inherit the workflow's write scopes.
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
