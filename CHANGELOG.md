@@ -15,6 +15,13 @@ replaced by npm (npx awssesh / npm i -g awssesh).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/awssesh/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/awssesh/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [2.2.1](https://github.com/tux86/awssesh/compare/v2.2.0...v2.2.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **cli:** stop a row reading "valid · expired", and land on the list after a login ([#24](https://github.com/tux86/awssesh/issues/24)) ([746356c](https://github.com/tux86/awssesh/commit/746356cf25844fa76a0a65a02ea1670da5077f86))
+
 ## [2.2.0](https://github.com/tux86/awssesh/compare/v2.1.0...v2.2.0) (2026-09-08)
 
 
