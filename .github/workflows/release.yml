@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  # Recovery path: a publish that fails after the release is tagged — an expired
+  # NPM_TOKEN, an npm outage — cannot be retried by re-running this workflow,
+  # because release-please only reports `release_created` once. This publishes
+  # whatever version main currently holds; npm rejects a version it already has,
+  # so triggering it when there is nothing to do is harmless.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,6 +17,7 @@ permissions:
 jobs:
   release-please:
     name: Release Please
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Run release-please
@@ -45,6 +52,45 @@ jobs:
 
       - name: Publish to npm
         if: ${{ steps.release.outputs.release_created }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish:
+    name: Publish to npm (manual)
+    # Only from main. `workflow_dispatch` runs the workflow file belonging to
+    # whichever ref is chosen, so this guard stops an accidental publish from a
+    # stale branch — it is NOT a security boundary: anyone able to push a branch
+    # can push one without the guard. What actually scopes NPM_TOKEN is holding
+    # it in a protected environment (or dropping the long-lived token for npm's
+    # OIDC trusted publishing).
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Publishing reads the repo and talks to npm; it has no business writing
+    # back here, so it does not inherit the workflow's write scopes.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Install dependencies
+        run: bun install
+        env:
+          HUSKY: "0"
+
+      - name: Publish to npm
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
