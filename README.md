@@ -172,6 +172,25 @@ block.
 
 ---
 
+## Profile states
+
+`STATUS` says what the profile needs before you can use it; `EXPIRES` counts
+down the credentials it has. They are drawn from the same fact, so they can
+never disagree.
+
+| Status | Means | What fixes it |
+|--------|-------|---------------|
+| `● valid` | Credentials on disk work right now | nothing |
+| `○ expired` | The login is fine; the (hour-long) credentials are not | `r`, or pin with `a` — and `exec` / `export` fetch on demand anyway |
+| `⚠ needs-login` | The SSO session has run out | `r`, then approve in the browser |
+| `⚠ needs-mfa` | A chained role wants an MFA code | `r`, then type the code |
+| `✗ error` | The last refresh failed | see the message; details view has the reason |
+
+Only the `⚠`/`✗` states need you — they are what the header counts as needing
+attention. `expired` is the resting state of any profile you have not pinned.
+
+---
+
 ## How Auto-Refresh Works
 
 awssesh tracks the role-credential expiry for each ⟳ pinned profile and refreshes only when the credentials are within the lead window of expiring (default: 5 minutes before expiry). No fixed interval; no wasted refreshes.

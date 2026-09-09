@@ -39,7 +39,10 @@ const TABLE_CHROME_ROWS = 3;
 const STATUS_COLOR: Record<ProfileStatusKind, string> = {
   valid: "green",
   refreshing: "cyan",
-  expired: "yellow",
+  // Grey, not yellow: with the login still good, expired credentials are the
+  // resting state of any profile nobody pinned, and one keypress from fixed.
+  // Yellow is kept for the states that need a human in a browser.
+  expired: "gray",
   "needs-login": "yellow",
   "needs-mfa": "yellow",
   error: "red",

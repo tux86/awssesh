@@ -133,6 +133,11 @@ export function Awssesh() {
 
   const startLogin = useCallback((target: LoginTarget, intent?: { name: string; action: Action }) => {
     loginIntent.current = intent ?? null;
+    // A login for a profile lands back on the list, whether it succeeds, fails
+    // or is cancelled: the overlay replaced whatever screen asked for it, and
+    // the profile that needed the login may not even be the one being viewed.
+    // A login for the account browser is left alone — it resumes the browser.
+    if (intent) setView("dashboard");
     setPendingLogin(target);
   }, []);
 

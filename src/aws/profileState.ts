@@ -17,18 +17,14 @@ export interface ProfileState {
   kind: Profile["kind"];
   status: ProfileStatusKind;
   /**
-   * When the thing that expires next runs out: the role credentials if awssesh
-   * knows their expiry, otherwise the SSO token. ISO string, or null.
+   * When the stored credentials expire. ISO string, or null when there are none.
+   *
+   * Strictly the credentials' own clock. It used to fall back to the SSO
+   * token's, which put a row in the impossible position of reading
+   * "valid · expired": the status came from the login, the countdown from the
+   * credentials, and nothing said so.
    */
   expiresAt: string | null;
-  /**
-   * When the stored credentials expire — null when there are none.
-   *
-   * Distinct from `expiresAt`, which falls back to the token: a screen that
-   * says "creds" has to be able to say there are none, rather than quoting the
-   * login's clock as if credentials had been fetched.
-   */
-  credentialsExpireAt: string | null;
   /** SSO token expiry — when the next interactive browser login is due. */
   ssoExpiresAt: string | null;
   favorite: boolean;
@@ -80,20 +76,27 @@ export async function buildProfileState(
     name: profile.name,
     kind: profile.kind,
     status: status(profile, ssoValid, creds ? credentialsAreFresh(creds, 0, now.getTime()) : false),
-    expiresAt: creds?.expiresAt?.toISOString() ?? ssoExpiresAt,
-    credentialsExpireAt: creds?.expiresAt?.toISOString() ?? null,
+    expiresAt: creds?.expiresAt?.toISOString() ?? null,
     ssoExpiresAt,
     favorite,
     accountId: profileAccountId(profile),
   };
 }
 
+/**
+ * What the profile needs before it can be used, most blocking first.
+ *
+ * `valid` means the credentials on disk work right now — not merely that the
+ * login behind them does. `expired` is the ordinary resting state of a profile
+ * nobody has pinned: the login is fine, the hour-long credentials are not, and
+ * `r` (or ⟳) is all it takes.
+ */
 function status(profile: Profile, ssoValid: boolean, credsFresh: boolean): ProfileStatusKind {
   if (!ssoValid) return "needs-login";
   // An MFA-gated profile cannot be refreshed silently, so say so up front
   // rather than looking healthy until the user asks for credentials.
   if (profile.kind === "assume" && profile.mfaSerial && !credsFresh) return "needs-mfa";
-  return "valid";
+  return credsFresh ? "valid" : "expired";
 }
 
 /**
