@@ -149,3 +149,14 @@ test("rootSSOProfile survives a source_profile cycle", () => {
   const b: AssumeProfile = { ...CHAINED, name: "b", sourceProfile: "a" };
   expect(profileState.rootSSOProfile(a, [a, b])).toBeNull();
 });
+
+test("a renewable login is not a login due, even once its access token lapses", async () => {
+  await sso.saveSSOTokenToCache(
+    { name: "my-sso", startUrl: DEV.ssoStartUrl, region: DEV.ssoRegion },
+    { accessToken: "tok", expiresAt: new Date(NOW.getTime() - 60_000), refreshToken: "r", clientId: "c", clientSecret: "s" },
+  );
+  const state = await profileState.buildProfileState(DEV, [DEV], false, NOW);
+  expect(state.status).not.toBe("needs-login");
+  expect(state.ssoRenewable).toBe(true);
+  expect(state.ssoExpiresAt).toBeNull();
+});

@@ -144,6 +144,23 @@ function Legend({ compact }: { compact: boolean }) {
   );
 }
 
+/**
+ * One line of advice about the profile under the cursor, for the reserved row.
+ *
+ * `○ expired` is the resting state of an unpinned profile and reads like a
+ * dead end, when `r` fixes it without a browser. And with nothing pinned the
+ * open TUI refreshes nothing at all, which nothing on screen used to say.
+ */
+export function cursorHint(current: ProfileState | undefined, anyPinned: boolean): string {
+  if (current?.status === "expired") {
+    return current.favorite
+      ? "r refreshes it now, no login needed"
+      : `r refreshes it, no login needed · a ${AUTO_MARKER} keeps it fresh`;
+  }
+  if (!anyPinned) return `nothing is ${AUTO_MARKER}, so nothing refreshes on its own · a pins a profile`;
+  return "";
+}
+
 function Help({ width, height }: { width: number; height: number }) {
   const rows: [string, string][] = [
     ["↑ ↓ / k j", "move the cursor"],
@@ -224,6 +241,7 @@ export function Dashboard(props: Props) {
   const current = visible[cursorIndex];
   const window = viewport(visible.length, cursorIndex, capacity);
   const page = visible.slice(window.start, window.end);
+  const hint = cursorHint(current, profiles.some((p) => p.favorite));
 
   useInput((input, key) => {
     if (filtering) {
@@ -349,6 +367,7 @@ export function Dashboard(props: Props) {
             {visible.length > 0 ? `${cursorIndex + 1}/${visible.length}` : ""}
             {window.hiddenAbove > 0 ? `  ↑ ${window.hiddenAbove}` : ""}
             {window.hiddenBelow > 0 ? `  ↓ ${window.hiddenBelow}` : ""}
+            {hint ? `  — ${hint}` : ""}
           </Text>
         )}
       </Box>

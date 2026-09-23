@@ -19,7 +19,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import type { CredentialsResult } from "./credentials.js";
 import { ssoCacheDir } from "./paths.js";
-import { sessionOf, type SSOProfile, type SSOSession } from "./profiles.js";
+import { discoverNamedSessions, sessionOf, type SSOProfile, type SSOSession } from "./profiles.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -31,6 +31,8 @@ export interface DeviceAuthInfo {
   deviceCode: string;
   clientId: string;
   clientSecret: string;
+  /** When the client registration itself lapses, if AWS said. */
+  registrationExpiresAt?: Date;
   expiresAt: Date;
   interval: number;
 }
@@ -38,6 +40,15 @@ export interface DeviceAuthInfo {
 export interface TokenInfo {
   accessToken: string;
   expiresAt: Date;
+  /**
+   * What a refreshable login carries on top of the access token, in the AWS
+   * CLI's own cache format: with them, an expired access token is renewed
+   * without a browser for as long as the portal's session allows.
+   */
+  refreshToken?: string;
+  clientId?: string;
+  clientSecret?: string;
+  registrationExpiresAt?: Date;
 }
 
 /**
@@ -67,35 +78,167 @@ function cacheFileFor(session: SSOSession): string {
   return `${ssoCacheDir()}/${hash}.json`;
 }
 
-export async function findCachedToken(session: SSOSession): Promise<TokenInfo | null> {
+/** A portal, whatever the session naming it: `…/start`, `…/start/` and `…/start#` are one. */
+export function portalKey(session: SSOSession): string {
+  return `${session.startUrl.replace(/[/#]+$/, "")}|${session.region}`;
+}
+
+/**
+ * The session plus every other `[sso-session]` naming the same portal.
+ *
+ * A config commonly gives each profile its own block, all pointing at one start
+ * URL. The token is the portal's, not the block's, yet the cache is keyed by
+ * block name — so without this each profile wanted its own browser login.
+ */
+async function portalSessions(session: SSOSession): Promise<SSOSession[]> {
+  const siblings = (await discoverNamedSessions()).filter(
+    (other) => other.name !== session.name && portalKey(other) === portalKey(session),
+  );
+  return [session, ...siblings];
+}
+
+/** True when a token can be renewed without a browser. */
+export function canRefresh(token: TokenInfo, now = new Date()): boolean {
+  return (
+    !!token.refreshToken &&
+    !!token.clientId &&
+    !!token.clientSecret &&
+    (!token.registrationExpiresAt || token.registrationExpiresAt > now)
+  );
+}
+
+/**
+ * The best of several cached tokens for one portal: a live one first (the
+ * longest-lived), then one that can be renewed, then whatever there is — an
+ * expired token still says when the last login lapsed. Pure, for testing.
+ */
+export function pickToken(tokens: (TokenInfo | null)[], now = new Date()): TokenInfo | null {
+  const found = tokens.filter((t): t is TokenInfo => t !== null);
+  const live = found.filter((t) => t.expiresAt > now).sort((a, b) => +b.expiresAt - +a.expiresAt);
+  return live[0] ?? found.find((t) => canRefresh(t, now)) ?? found[0] ?? null;
+}
+
+function optionalDate(value: unknown): Date | undefined {
+  return typeof value === "string" ? new Date(value) : undefined;
+}
+
+async function readCacheFile(session: SSOSession): Promise<TokenInfo | null> {
   try {
     const content = JSON.parse(await readFile(cacheFileFor(session), "utf8"));
-    if (content.accessToken && content.expiresAt) {
-      return { accessToken: content.accessToken, expiresAt: new Date(content.expiresAt) };
-    }
-    return null;
+    if (!content.accessToken || !content.expiresAt) return null;
+    return {
+      accessToken: content.accessToken,
+      expiresAt: new Date(content.expiresAt),
+      refreshToken: content.refreshToken,
+      clientId: content.clientId,
+      clientSecret: content.clientSecret,
+      registrationExpiresAt: optionalDate(content.registrationExpiresAt),
+    };
   } catch {
     return null;
   }
 }
 
-/** The cached token for a profile's portal, if it is still valid right now. */
-export async function findValidToken(profile: SSOProfile, now = new Date()): Promise<TokenInfo | null> {
-  const token = await findCachedToken(sessionOf(profile));
-  return token && token.expiresAt > now ? token : null;
+/** The portal's cached token, from this session's file or any sibling's. */
+export async function findCachedToken(session: SSOSession, now = new Date()): Promise<TokenInfo | null> {
+  const sessions = await portalSessions(session);
+  return pickToken(await Promise.all(sessions.map(readCacheFile)), now);
 }
 
+/** Renew an access token with its refresh token. The one network call of the refresh path. */
+async function refreshAccessToken(session: SSOSession, token: TokenInfo): Promise<TokenInfo> {
+  const client = new SSOOIDCClient({ region: session.region });
+  const response = await client.send(
+    new CreateTokenCommand({
+      clientId: token.clientId,
+      clientSecret: token.clientSecret,
+      grantType: "refresh_token",
+      refreshToken: token.refreshToken,
+    }),
+  );
+  if (!response.accessToken) throw new Error("CreateToken returned no access token");
+  return {
+    ...token,
+    accessToken: response.accessToken,
+    expiresAt: new Date(Date.now() + (response.expiresIn || 3600) * 1000),
+    refreshToken: response.refreshToken ?? token.refreshToken,
+  };
+}
+
+/** Renew this early, so a token handed out is not about to lapse mid-call. */
+const REFRESH_MARGIN_MS = 5 * 60 * 1000;
+
+/** Refresh-token errors meaning the portal session is over: only a browser login helps. */
+const SESSION_OVER_ERRORS = new Set([
+  "InvalidGrantException",
+  "ExpiredTokenException",
+  "UnauthorizedClientException",
+  "InvalidClientException",
+  "AccessDeniedException",
+]);
+
+/**
+ * The portal's token, renewed first when it is close to expiry and can be.
+ *
+ * A renewal that AWS refuses outright drops the refresh token from the cache,
+ * so the profile reads as needing a login instead of promising a renewal that
+ * cannot happen. A renewal that merely fails (network) changes nothing.
+ */
+export async function findValidToken(
+  session: SSOSession,
+  now = new Date(),
+  refresh: (session: SSOSession, token: TokenInfo) => Promise<TokenInfo> = refreshAccessToken,
+): Promise<TokenInfo | null> {
+  const token = await findCachedToken(session, now);
+  if (!token) return null;
+  const live = token.expiresAt > now ? token : null;
+  if (token.expiresAt.getTime() - now.getTime() > REFRESH_MARGIN_MS || !canRefresh(token, now) || demoMode()) {
+    // Borrowed from a sibling: copy it to this session's own file, which is
+    // the only one the AWS CLI reads — it consults the SSO cache before the
+    // credentials file, so a stale token there breaks `aws` for the profile.
+    if (live && (await readCacheFile(session))?.accessToken !== live.accessToken) {
+      await saveSSOTokenToCache(session, live);
+    }
+    return live;
+  }
+
+  try {
+    const renewed = await refresh(session, token);
+    await saveSSOTokenToCache(session, renewed);
+    return renewed;
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (SESSION_OVER_ERRORS.has(name)) {
+      await saveSSOTokenToCache(session, { accessToken: token.accessToken, expiresAt: token.expiresAt });
+    }
+    return live;
+  }
+}
+
+/**
+ * Cache a token for the session and every sibling naming the same portal, so
+ * one login serves them all — and so does the AWS CLI reading those files.
+ */
 export async function saveSSOTokenToCache(session: SSOSession, tokenInfo: TokenInfo): Promise<void> {
   try {
     await mkdir(ssoCacheDir(), { recursive: true });
-    const cacheData = {
-      startUrl: session.startUrl,
-      region: session.region,
-      accessToken: tokenInfo.accessToken,
-      expiresAt: tokenInfo.expiresAt.toISOString(),
-    };
-    await writeFile(cacheFileFor(session), JSON.stringify(cacheData, null, 2));
-    await chmod(cacheFileFor(session), 0o600);
+    for (const target of await portalSessions(session)) {
+      const cacheData = {
+        startUrl: target.startUrl,
+        region: target.region,
+        accessToken: tokenInfo.accessToken,
+        expiresAt: tokenInfo.expiresAt.toISOString(),
+        ...(tokenInfo.refreshToken && {
+          clientId: tokenInfo.clientId,
+          clientSecret: tokenInfo.clientSecret,
+          registrationExpiresAt: tokenInfo.registrationExpiresAt?.toISOString(),
+          refreshToken: tokenInfo.refreshToken,
+        }),
+      };
+      const file = cacheFileFor(target);
+      await writeFile(file, JSON.stringify(cacheData, null, 2), { mode: 0o600 });
+      await chmod(file, 0o600);
+    }
   } catch {
     // Silently fail — the token still works for this run, it just is not cached.
   }
@@ -123,8 +266,12 @@ export async function startDeviceAuthorization(session: SSOSession): Promise<Dev
   try {
     const client = new SSOOIDCClient({ region: session.region });
 
+    // Registering with scopes is what makes AWS hand back a refresh token, as
+    // the AWS CLI does for an [sso-session]. A bare start URL (the legacy
+    // inline form) keeps the legacy, non-refreshable login.
+    const scopes = session.name ? (session.scopes ?? ["sso:account:access"]) : undefined;
     const registerResponse = await client.send(
-      new RegisterClientCommand({ clientName: "awssesh", clientType: "public" })
+      new RegisterClientCommand({ clientName: "awssesh", clientType: "public", scopes })
     );
 
     if (!registerResponse.clientId || !registerResponse.clientSecret) {
@@ -149,6 +296,9 @@ export async function startDeviceAuthorization(session: SSOSession): Promise<Dev
       deviceCode: authResponse.deviceCode,
       clientId: registerResponse.clientId,
       clientSecret: registerResponse.clientSecret,
+      registrationExpiresAt: registerResponse.clientSecretExpiresAt
+        ? new Date(registerResponse.clientSecretExpiresAt * 1000)
+        : undefined,
       expiresAt: new Date(Date.now() + (authResponse.expiresIn || 600) * 1000),
       interval: authResponse.interval || 5,
     };
@@ -184,7 +334,16 @@ export async function pollForToken(
 
       if (tokenResponse.accessToken) {
         const expiresAt = new Date(Date.now() + (tokenResponse.expiresIn || 28800) * 1000);
-        return { accessToken: tokenResponse.accessToken, expiresAt };
+        return {
+          accessToken: tokenResponse.accessToken,
+          expiresAt,
+          ...(tokenResponse.refreshToken && {
+            refreshToken: tokenResponse.refreshToken,
+            clientId: deviceAuth.clientId,
+            clientSecret: deviceAuth.clientSecret,
+            registrationExpiresAt: deviceAuth.registrationExpiresAt,
+          }),
+        };
       }
     } catch (error) {
       const errName = error instanceof Error ? error.name : "";
@@ -279,7 +438,7 @@ export async function getCredentialsWithToken(
  * Returns `expired-token` when a browser login is the only way forward.
  */
 export async function fetchSSOCredentials(profile: SSOProfile): Promise<CredentialsResult> {
-  const token = await findValidToken(profile);
+  const token = await findValidToken(sessionOf(profile));
   if (!token) return { failure: "expired-token", error: "SSO login required" };
 
   if (demoMode()) {

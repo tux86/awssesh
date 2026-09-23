@@ -2,6 +2,7 @@ import { test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { SSOProfile } from "./profiles";
 
 let TMP: string;
 let profiles: typeof import("./profiles.ts");
@@ -280,3 +281,31 @@ test("discoverProfiles reads ~/.aws/config", async () => {
   expect(found.map((p) => p.name).sort()).toEqual(["dev", "legacy", "locked", "prod-admin"]);
 });
 
+
+test("an sso profile keeps its session's scopes and a duration_seconds it cannot use", () => {
+  const config = profiles.parseIni(
+    [
+      "[sso-session s]",
+      "sso_start_url = https://example.awsapps.com/start",
+      "sso_region = eu-west-1",
+      "sso_registration_scopes = sso:account:access, extra:scope",
+      "",
+      "[profile p]",
+      "sso_session = s",
+      "sso_account_id = 1",
+      "sso_role_name = R",
+      "duration_seconds = 43200",
+    ].join("\n"),
+  );
+  const [p] = profiles.parseProfiles(config);
+  expect(p).toMatchObject({ ssoRegistrationScopes: ["sso:account:access", "extra:scope"], durationSeconds: 43200 });
+  expect(profiles.sessionOf(p as SSOProfile).scopes).toEqual(["sso:account:access", "extra:scope"]);
+});
+
+test("parseNamedSessions keeps every block, even several naming one portal", () => {
+  const block = (name: string) => [`[sso-session ${name}]`, "sso_start_url = https://one.awsapps.com/start", ""];
+  const config = profiles.parseIni([...block("a"), ...block("b")].join("\n"));
+  expect(profiles.parseNamedSessions(config).map((s) => s.name)).toEqual(["a", "b"]);
+  // The account browser still sees the portal once.
+  expect(profiles.parseSSOSessions(config)).toHaveLength(1);
+});

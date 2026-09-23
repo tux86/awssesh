@@ -25,7 +25,7 @@ import {
   type SSOSession,
 } from "../../aws/profiles.js";
 import { ensureCredentials, type CredentialsOutcome } from "../../aws/refresh.js";
-import { findCachedToken, sendNotification, openBrowser } from "../../aws/sso.js";
+import { findCachedToken, findValidToken, sendNotification, openBrowser } from "../../aws/sso.js";
 import { buildExportBlock } from "../../aws/env.js";
 import { getConsoleSigninUrl } from "../../aws/console.js";
 import { copyToClipboard } from "../../aws/utils.js";
@@ -353,8 +353,8 @@ export function Awssesh() {
 
   const requestToken = useCallback(
     async (session: SSOSession): Promise<string | null> => {
-      const cached = await findCachedToken(session);
-      if (cached && cached.expiresAt > new Date()) return cached.accessToken;
+      const cached = await findValidToken(session);
+      if (cached) return cached.accessToken;
       // Remembered so the browser comes back to this portal after the login,
       // instead of restarting at the picker.
       setBrowseSession(session);
