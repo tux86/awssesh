@@ -15,6 +15,13 @@ replaced by npm (npx awssesh / npm i -g awssesh).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/awssesh/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/awssesh/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [2.2.2](https://github.com/tux86/awssesh/compare/v2.2.1...v2.2.2) (2026-09-23)
+
+
+### Bug Fixes
+
+* **aws:** share one SSO login per portal and renew it with a refresh token ([#27](https://github.com/tux86/awssesh/issues/27)) ([21d84e5](https://github.com/tux86/awssesh/commit/21d84e58d99f6068de6ecc9ef47b854ab61e8ea7))
+
 ## [2.2.1](https://github.com/tux86/awssesh/compare/v2.2.0...v2.2.1) (2026-09-09)
 
 
