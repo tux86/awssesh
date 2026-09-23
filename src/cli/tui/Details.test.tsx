@@ -34,6 +34,7 @@ const SSO_STATE: ProfileState = {
   status: "valid",
   expiresAt: hour(1),
   ssoExpiresAt: hour(8),
+  ssoRenewable: false,
   favorite: true,
   accountId: "111111111111",
 };
@@ -115,6 +116,7 @@ test("a chain rooted in IAM keys is not told it needs a login it will never need
     status: "valid",
     expiresAt: hour(1),
     ssoExpiresAt: null,
+    ssoRenewable: false,
     favorite: false,
     accountId: "333333333333",
   };
@@ -133,6 +135,7 @@ test("a profile with no credentials yet says so, rather than quoting the login c
     kind: "assume",
     expiresAt: null,
     ssoExpiresAt: hour(8),
+    ssoRenewable: false,
   };
   const { lastFrame, unmount } = mount(state, CHAINED_CONFIG);
   await tick();
@@ -184,4 +187,18 @@ test("Esc, left arrow and q all go back", async () => {
     expect(calls).toEqual(["back"]);
     unmount();
   }
+});
+
+test("a duration_seconds on an SSO profile is flagged as having no effect", async () => {
+  const { lastFrame, unmount } = mount(SSO_STATE, { ...SSO_CONFIG, durationSeconds: 43200 });
+  await tick();
+  expect(lastFrame()).toContain("duration_seconds = 43200 has no effect");
+  unmount();
+});
+
+test("a renewable login says it renews without a browser", async () => {
+  const { lastFrame, unmount } = mount({ ...SSO_STATE, ssoRenewable: true, ssoExpiresAt: null }, SSO_CONFIG);
+  await tick();
+  expect(lastFrame()).toContain("renews without a browser");
+  unmount();
 });

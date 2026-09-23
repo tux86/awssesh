@@ -26,6 +26,14 @@ export interface SSOProfile {
   region?: string;
   /** The `[sso-session]` block this profile refers to, when it uses one. */
   ssoSession?: string;
+  /** That block's `sso_registration_scopes`, when it lists any. */
+  ssoRegistrationScopes?: string[];
+  /**
+   * `duration_seconds` as written. It has no effect here: an SSO role session
+   * lasts what its permission set says, whatever the profile asks for. Kept
+   * only so the details screen can say so.
+   */
+  durationSeconds?: number;
 }
 
 export interface AssumeProfile {
@@ -47,6 +55,8 @@ export interface SSOSession {
   name?: string;
   startUrl: string;
   region: string;
+  /** `sso_registration_scopes`, for an `[sso-session]` block that sets them. */
+  scopes?: string[];
 }
 
 export interface ConfigSection {
@@ -89,12 +99,25 @@ function sessionBlocks(config: ParsedConfig): Map<string, ConfigSection> {
   return sessions;
 }
 
+/** `sso_registration_scopes = a, b` as a list, or undefined when unset. */
+function scopesOf(values: ConfigSection | undefined): string[] | undefined {
+  const scopes = values?.sso_registration_scopes
+    ?.split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+  return scopes?.length ? scopes : undefined;
+}
+
+function positiveNumber(value: string | undefined): number | undefined {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 function toProfile(name: string, values: ConfigSection, sessions: Map<string, ConfigSection>): Profile | null {
   if (values.role_arn) {
     // Without a source profile there is nothing to sign the AssumeRole call
     // with, so the profile is unusable rather than merely unsupported.
     if (!values.source_profile) return null;
-    const duration = Number(values.duration_seconds);
     return {
       kind: "assume",
       name,
@@ -104,7 +127,7 @@ function toProfile(name: string, values: ConfigSection, sessions: Map<string, Co
       mfaSerial: values.mfa_serial,
       externalId: values.external_id,
       roleSessionName: values.role_session_name,
-      durationSeconds: Number.isFinite(duration) && duration > 0 ? duration : undefined,
+      durationSeconds: positiveNumber(values.duration_seconds),
     };
   }
 
@@ -124,6 +147,8 @@ function toProfile(name: string, values: ConfigSection, sessions: Map<string, Co
     ssoRegion: session?.sso_region ?? values.sso_region ?? DEFAULT_SSO_REGION,
     region: values.region,
     ssoSession: values.sso_session,
+    ssoRegistrationScopes: scopesOf(session),
+    durationSeconds: positiveNumber(values.duration_seconds),
   };
 }
 
@@ -150,14 +175,7 @@ export function parseProfiles(config: ParsedConfig): Profile[] {
 export function parseSSOSessions(config: ParsedConfig): SSOSession[] {
   const byStartUrl = new Map<string, SSOSession>();
 
-  for (const [name, values] of sessionBlocks(config)) {
-    if (!values.sso_start_url) continue;
-    byStartUrl.set(values.sso_start_url, {
-      name,
-      startUrl: values.sso_start_url,
-      region: values.sso_region ?? DEFAULT_SSO_REGION,
-    });
-  }
+  for (const session of parseNamedSessions(config)) byStartUrl.set(session.startUrl, session);
 
   for (const [section, values] of Object.entries(config)) {
     if (profileNameOf(section) === null) continue;
@@ -171,6 +189,25 @@ export function parseSSOSessions(config: ParsedConfig): SSOSession[] {
   }
 
   return [...byStartUrl.values()];
+}
+
+/** Every `[sso-session]` block, including several that name the same portal. */
+export function parseNamedSessions(config: ParsedConfig): SSOSession[] {
+  const sessions: SSOSession[] = [];
+  for (const [name, values] of sessionBlocks(config)) {
+    if (!values.sso_start_url) continue;
+    sessions.push({
+      name,
+      startUrl: values.sso_start_url,
+      region: values.sso_region ?? DEFAULT_SSO_REGION,
+      scopes: scopesOf(values),
+    });
+  }
+  return sessions;
+}
+
+export async function discoverNamedSessions(): Promise<SSOSession[]> {
+  return parseNamedSessions(await parseIniFile(configPath()));
 }
 
 export async function discoverProfiles(): Promise<Profile[]> {
@@ -198,7 +235,12 @@ export function profileRegion(profile: Profile): string | undefined {
 
 /** The portal an SSO profile logs in to. */
 export function sessionOf(profile: SSOProfile): SSOSession {
-  return { name: profile.ssoSession, startUrl: profile.ssoStartUrl, region: profile.ssoRegion };
+  return {
+    name: profile.ssoSession,
+    startUrl: profile.ssoStartUrl,
+    region: profile.ssoRegion,
+    scopes: profile.ssoRegistrationScopes,
+  };
 }
 
 /** The account a profile's credentials belong to, where it is known from config alone. */

@@ -100,7 +100,9 @@ export function Details({
           {/* Distinct from the row above: role credentials last about an hour,
               the SSO token many hours — this is when a browser login is due.
               A chain rooted in long-lived IAM keys never needs one at all. */}
-          {profile.ssoExpiresAt ? (
+          {profile.ssoRenewable ? (
+            <Text dimColor>renews without a browser</Text>
+          ) : profile.ssoExpiresAt ? (
             <Text>
               {formatTimeLeft(profile.ssoExpiresAt, now)}
               <Text dimColor>{`  (${formatClock(profile.ssoExpiresAt)})`}</Text>
@@ -122,9 +124,20 @@ export function Details({
             {config.mfaSerial && <Row label="mfa">{config.mfaSerial}</Row>}
           </>
         ) : (
-          <Row label="sso url">
-            {config?.kind === "sso" ? <Link url={config.ssoStartUrl} /> : <Text dimColor>—</Text>}
-          </Row>
+          <>
+            <Row label="sso url">
+              {config?.kind === "sso" ? <Link url={config.ssoStartUrl} /> : <Text dimColor>—</Text>}
+            </Row>
+            {/* A duration_seconds on an SSO profile reads like a 12-hour
+                session and delivers the permission set's hour: say so. */}
+            {config?.kind === "sso" && config.durationSeconds && (
+              <Row label="duration">
+                <Text color="yellow">
+                  {`duration_seconds = ${config.durationSeconds} has no effect: the permission set decides`}
+                </Text>
+              </Row>
+            )}
+          </>
         )}
         {profile.error && (
           <Box marginTop={1}>

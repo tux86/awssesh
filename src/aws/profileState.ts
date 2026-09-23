@@ -8,7 +8,7 @@ import {
   type SSOProfile,
 } from "./profiles.js";
 import { loadSettings } from "./settings.js";
-import { findCachedToken } from "./sso.js";
+import { canRefresh, findCachedToken } from "./sso.js";
 
 export type ProfileStatusKind = "valid" | "expired" | "needs-login" | "needs-mfa" | "error" | "refreshing";
 
@@ -25,8 +25,13 @@ export interface ProfileState {
    * credentials, and nothing said so.
    */
   expiresAt: string | null;
-  /** SSO token expiry — when the next interactive browser login is due. */
+  /**
+   * SSO token expiry — when the next interactive browser login is due. Null
+   * when the login renews itself, since its real end is the portal's to decide.
+   */
   ssoExpiresAt: string | null;
+  /** The login carries a refresh token, so it renews without a browser. */
+  ssoRenewable: boolean;
   favorite: boolean;
   accountId?: string;
   error?: string;
@@ -67,10 +72,11 @@ export async function buildProfileState(
   now: Date,
 ): Promise<ProfileState> {
   const root = rootSSOProfile(profile, all);
-  const cachedToken = root ? await findCachedToken(sessionOf(root)) : null;
-  const ssoValid = root === null || (cachedToken !== null && cachedToken.expiresAt > now);
+  const cachedToken = root ? await findCachedToken(sessionOf(root), now) : null;
+  const ssoRenewable = cachedToken !== null && canRefresh(cachedToken, now);
+  const ssoValid = root === null || ssoRenewable || (cachedToken !== null && cachedToken.expiresAt > now);
   const creds = readProfileCredentials(profile.name);
-  const ssoExpiresAt = cachedToken ? cachedToken.expiresAt.toISOString() : null;
+  const ssoExpiresAt = cachedToken && !ssoRenewable ? cachedToken.expiresAt.toISOString() : null;
 
   return {
     name: profile.name,
@@ -78,6 +84,7 @@ export async function buildProfileState(
     status: status(profile, ssoValid, creds ? credentialsAreFresh(creds, 0, now.getTime()) : false),
     expiresAt: creds?.expiresAt?.toISOString() ?? null,
     ssoExpiresAt,
+    ssoRenewable,
     favorite,
     accountId: profileAccountId(profile),
   };

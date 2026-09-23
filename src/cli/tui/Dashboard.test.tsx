@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import React from "react";
 import { render } from "ink-testing-library";
 import type { ProfileState } from "../../aws/profileState";
-import { Dashboard } from "./Dashboard";
+import { Dashboard, cursorHint } from "./Dashboard";
 import { KEYS, tick } from "../testKeys";
 
 const hour = (n: number) => new Date(Date.now() + n * 3_600_000).toISOString();
@@ -14,6 +14,7 @@ const PROFILES: ProfileState[] = [
     status: "valid",
     expiresAt: hour(1),
     ssoExpiresAt: hour(8),
+    ssoRenewable: false,
     favorite: true,
     accountId: "111111111111",
   },
@@ -23,6 +24,7 @@ const PROFILES: ProfileState[] = [
     status: "needs-login",
     expiresAt: null,
     ssoExpiresAt: null,
+    ssoRenewable: false,
     favorite: false,
     accountId: "333333333333",
   },
@@ -32,6 +34,7 @@ const PROFILES: ProfileState[] = [
     status: "needs-mfa",
     expiresAt: hour(8),
     ssoExpiresAt: hour(8),
+    ssoRenewable: false,
     favorite: false,
     accountId: "444444444444",
   },
@@ -288,4 +291,26 @@ test("a filter matching nothing says so and blocks profile actions", async () =>
   await tick();
   expect(calls).toEqual([]);
   unmount();
+});
+
+test("an expired row says r fixes it without a login", async () => {
+  const expired: ProfileState = { ...PROFILES[0]!, name: "daia", status: "expired", expiresAt: hour(-1), favorite: false };
+  const { lastFrame, unmount } = mount([expired, PROFILES[0]!]);
+  await tick();
+  expect(lastFrame()).toContain("r refreshes it, no login needed");
+  unmount();
+});
+
+test("with nothing pinned, the list says nothing refreshes on its own", async () => {
+  const { lastFrame, unmount } = mount(PROFILES.map((p) => ({ ...p, favorite: false })));
+  await tick();
+  expect(lastFrame()).toContain("nothing refreshes on its own");
+  unmount();
+});
+
+test("cursorHint stays quiet on a healthy row once something is pinned", () => {
+  expect(cursorHint(PROFILES[0], true)).toBe("");
+  expect(cursorHint({ ...PROFILES[0]!, status: "expired", favorite: true }, true)).toBe(
+    "r refreshes it now, no login needed",
+  );
 });
