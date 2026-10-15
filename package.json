@@ -35,7 +35,7 @@
   "scripts": {
     "start": "bun run src/cli/index.tsx",
     "dev": "bun run --watch src/cli/index.tsx",
-    "build": "bun build src/cli/index.tsx --target node --packages external --outfile dist/cli.js",
+    "build": "bun scripts/build.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
@@ -47,10 +47,7 @@
     "@aws-sdk/client-sso": "^3.1122.0",
     "@aws-sdk/client-sso-oidc": "^3.1122.0",
     "@aws-sdk/client-sts": "^3.1127.0",
-    "ini": "^7.0.0",
-    "ink": "^7.1.1",
-    "ink-spinner": "^5.0.0",
-    "react": "^19.2.8"
+    "ini": "^7.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
@@ -65,7 +62,10 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
+    "ink": "^7.1.1",
+    "ink-spinner": "^5.0.0",
     "ink-testing-library": "^4.0.0",
+    "react": "^19.2.8",
     "typescript": "^6.0.3"
   }
 }

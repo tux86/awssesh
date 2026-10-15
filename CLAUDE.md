@@ -68,6 +68,7 @@ awssesh/
 │           ├── useNow.ts      # Ticking clock for live countdowns
 │           ├── useTerminalSize.ts    # Terminal dimensions + resize
 │           └── useTransientMessage.ts # Self-expiring status messages
+├── scripts/build.ts           # Builds dist/cli.js (React bundled in production mode)
 ├── dist/                      # Build output
 │   └── cli.js                 # Node CLI bundle (npm bin)
 ├── docs/screenshots/          # Demo GIFs for README
