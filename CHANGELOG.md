@@ -15,6 +15,13 @@ replaced by npm (npx awssesh / npm i -g awssesh).
 * **cli:** remove web UI layer and toolchain ([d6f3f53](https://github.com/tux86/awssesh/commit/d6f3f53eb374f656bf2e3d8b11b55117eaa86bdb))
 * drop dead web eslint block, fix CONTRIBUTING, harden ~/.aws writes ([b15cb3c](https://github.com/tux86/awssesh/commit/b15cb3c01dc8de09f6dc9ae591d465af0101dcdf))
 
+## [2.2.3](https://github.com/tux86/awssesh/compare/v2.2.2...v2.2.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **cli:** bundle React in production mode so the TUI stops leaking memory ([#29](https://github.com/tux86/awssesh/issues/29)) ([6a9157e](https://github.com/tux86/awssesh/commit/6a9157ecece585e0fdd813c7736c37e19fad8bda))
+
 ## [2.2.2](https://github.com/tux86/awssesh/compare/v2.2.1...v2.2.2) (2026-09-23)
 
 
